@@ -2798,7 +2798,7 @@ function openViewer(mode){
         var _tMRow=_div('v8row');_tMRow.style.cssText='padding:12px 14px;flex-wrap:wrap;gap:8px;align-items:center;';
         _tMRow.appendChild(_div('v8rb','<div class="v8rt">语音模型</div>'));
         var _tMSel=TOPDOC.createElement('select');_tMSel.className='v8fi';_tMSel.style.cssText='max-width:180px;font-size:13px;flex:1;';
-        var _defTtsMdl=['speech-02-hd','speech-02-turbo','speech-02','speech-01-hd','speech-01','speech-01-turbo'];
+        var _defTtsMdl=['speech-2.8-hd','speech-2.8-turbo','speech-2.6-hd','speech-2.6-turbo','speech-2.5-hd-preview','speech-2.5-turbo-preview','speech-02-hd','speech-02-turbo','speech-02','speech-01-hd','speech-01','speech-01-turbo'];
         function _fillTtsMdl(list){
           _tMSel.innerHTML='';
           list.forEach(function(m){var o=TOPDOC.createElement('option');o.value=m;o.textContent=m;if((_sbS.ttsModel||'speech-02-hd')===m)o.selected=true;_tMSel.appendChild(o);});
