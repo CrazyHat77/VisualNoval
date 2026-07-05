@@ -550,6 +550,11 @@ function openViewer(mode){
         var _rm=_vnmRealMes();
         var lastMes=_rm[_rm.length-1];
         if(!lastMes||lastMes.getAttribute('is_user')==='true') return;
+        // 酒馆生成中：停止按钮可见 → 无论文本是否被渲染优化器冻结都不判完成
+        var _stop=TOPDOC.querySelector('#mes_stop');
+        var _generating=false;
+        try{ _generating=!!(_stop&&_stop.offsetParent!==null&&TOP.getComputedStyle(_stop).display!=='none'); }catch(e){}
+        if(_generating){ stableCount=0; prevLen=-1; if(txt) txt.textContent='AI 回复中…'; return; }
         var mesText=lastMes.querySelector('.mes_text');
         var curLen=mesText?mesText.textContent.length:0;
         if(prevLen>=0&&curLen===prevLen){
