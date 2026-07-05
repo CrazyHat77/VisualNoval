@@ -531,6 +531,13 @@ function openViewer(mode){
       nb.addEventListener('click',function(e){e.stopPropagation();nextTurn();});
     } else if(!hasNext&&existing){ existing.remove(); }
   }
+  // fix: AI 回复在非本次发送流程中生成时也能弹出「跳到下一对话」——轻量轮询兜底
+  var _turnBtnPoll=TOP.setInterval(function(){
+    try{
+      if(!overlay||!overlay.isConnected){ TOP.clearInterval(_turnBtnPoll); return; }
+      updateTurnCornerBtn();
+    }catch(e){}
+  },2000);
 
   // ── Stay mode ───────────────────────────────────────────
   function saveSettingsToStorage(){
@@ -561,7 +568,8 @@ function openViewer(mode){
     if(inp) inp.style.display='none';
     if(txt) txt.textContent='已发送，等待 AI 回复…';
 
-    var mesCount=TOPDOC.querySelectorAll('#chat .mes').length;
+    function _vnmRealMes(){ return TOPDOC.querySelectorAll('#chat .mes:not([is_system="true"])'); }
+    var mesCount=_vnmRealMes().length;
     var phase=0; // 0=等待新消息  1=监控内容增长  2=完成
     var prevLen=-1;
     var stableCount=0;
@@ -577,7 +585,7 @@ function openViewer(mode){
 
     if(state.watchTimer){TOP.clearInterval(state.watchTimer);state.watchTimer=null;}
     state.watchTimer=TOP.setInterval(function(){
-      var curCount=TOPDOC.querySelectorAll('#chat .mes').length;
+      var curCount=_vnmRealMes().length;
 
       // Phase 0→1: 检测到新 .mes 出现
       if(phase===0&&curCount>mesCount){
@@ -589,7 +597,8 @@ function openViewer(mode){
 
       // Phase 1: 监控 .last_mes 内容长度，连续2次不变即视为生成完毕
       if(phase===1){
-        var lastMes=TOPDOC.querySelector('#chat .mes.last_mes');
+        var _rm=_vnmRealMes();
+        var lastMes=_rm[_rm.length-1];
         if(!lastMes||lastMes.getAttribute('is_user')==='true') return;
         var mesText=lastMes.querySelector('.mes_text');
         var curLen=mesText?mesText.textContent.length:0;
@@ -599,10 +608,16 @@ function openViewer(mode){
             phase=2;
             TOP.clearInterval(state.watchTimer);state.watchTimer=null;
             hideSentState();
-            TOP.setTimeout(function(){
+            var _recheck=function(final){
               updateTurnCornerBtn();
               var list=getVnmMes();var cur=getMyMesElement();var idx=list.indexOf(cur);
-              if(idx>=0&&idx<list.length-1) showToast('新对话已就绪 →',2500);
+              if(idx>=0&&idx<list.length-1){ showToast('新对话已就绪 →',2500); return true; }
+              return false;
+            };
+            TOP.setTimeout(function(){ if(_recheck()) return;
+              TOP.setTimeout(function(){ if(_recheck()) return;
+                TOP.setTimeout(_recheck,3000);
+              },1400);
             },600);
           }
         } else {
