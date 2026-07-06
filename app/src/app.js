@@ -926,12 +926,11 @@ function openViewer(mode){
     if(sbS.fishTopP!==undefined && sbS.fishTopP!==null && sbS.fishTopP!==''){
       body.top_p=parseFloat(sbS.fishTopP);
     }
-    /* Fish Audio 不支持浏览器直连(无 CORS)，走酒馆自带的 /proxy/ 转发(需在 config.yaml 开 enableCorsProxy) */
-    var proxyUrl='/proxy/https://api.fish.audio/v1/tts';
-    TOP.fetch(proxyUrl,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apikey,'model':model},body:JSON.stringify(body)})
+    /* Fish Audio 不支持浏览器直连(无 CORS)，走独立本地代理小工具(fish-tts-proxy)转发 */
+    var proxyPort=sbS.fishProxyPort||'8765';
+    var proxyUrl='http://127.0.0.1:'+proxyPort+'/tts';
+    TOP.fetch(proxyUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({apiKey:apikey,model:model,payload:body})})
       .then(function(r){
-        if(r.status===404){ throw new Error('酒馆的 CORS 代理未开启，请在酒馆 config.yaml 里把 enableCorsProxy 改成 true 并重启酒馆'); }
-        if(r.status===401||r.status===403){ throw new Error('酒馆代理鉴权失败(401/403)，请刷新一下酒馆页面重新登录后再试'); }
         if(!r.ok){
           return r.text().then(function(t){
             var msg='Fish Audio HTTP '+r.status;
@@ -947,7 +946,13 @@ function openViewer(mode){
         _vtCachePut(key,url);
         cb(null,url);
       })
-      .catch(function(e){ cb(e.message||String(e)); });
+      .catch(function(e){
+        var msg=e&&e.message||String(e);
+        if(/Failed to fetch|NetworkError|Load failed/i.test(msg)){
+          msg='未连接到本地 Fish Audio 代理(127.0.0.1:'+proxyPort+')，请先双击运行 fish-tts-proxy 里的 启动.bat';
+        }
+        cb(msg);
+      });
   }
 
   function _vtPlay(url){ try{ if(_vtAudio){_vtAudio.pause();} _vtAudio=new TOP.Audio(url); _vtAudio.play(); }catch(e){} }
@@ -1449,6 +1454,7 @@ function openViewer(mode){
       fishLatency:   _d.fishLatency   ||'normal',
       fishTemperature:(_d.fishTemperature!==undefined&&_d.fishTemperature!==null)?_d.fishTemperature:'',
       fishTopP:      (_d.fishTopP!==undefined&&_d.fishTopP!==null)?_d.fishTopP:'',
+      fishProxyPort: _d.fishProxyPort ||'8765',
       voiceTagEnabled: (_d.voiceTagEnabled!==undefined)?_d.voiceTagEnabled:false,
       voiceTagMode:  _d.voiceTagMode  ||'manual',
       voiceTagLang:  _d.voiceTagLang  ||'中文',
@@ -3273,7 +3279,7 @@ function openViewer(mode){
         /* ── Fish Audio 配置区（provider=fishaudio 时展开） ── */
         var _fishSec=_div('');
         _fishSec.appendChild(_div('v8sec','Fish Audio 配置'));
-        var _fHint=_div('');_fHint.style.cssText='font-size:11px;color:rgba(255,255,255,.4);line-height:1.5;padding:0 4px 8px;';_fHint.textContent='Fish Audio 服务器不支持浏览器直连，需要酒馆开启内置 CORS 代理才能用：打开酒馆 config.yaml，把 enableCorsProxy 改成 true，然后重启酒馆。';_fishSec.appendChild(_fHint);
+        var _fHint=_div('');_fHint.style.cssText='font-size:11px;color:rgba(255,255,255,.4);line-height:1.5;padding:0 4px 8px;';_fHint.textContent='Fish Audio 服务器不支持浏览器直连，需要先运行随插件附带的 fish-tts-proxy 本地小工具（双击里面的 启动.bat）才能用。端口默认 8765，改了要在下面同步改。';_fishSec.appendChild(_fHint);
         var cF=_div('v8card');
         /* API Key */
         var _fKRow=_div('v8row');_fKRow.style.cssText='flex-direction:column;align-items:stretch;padding:12px 14px;gap:6px;';
@@ -3282,6 +3288,14 @@ function openViewer(mode){
         _fKInp.addEventListener('mousedown',function(e){e.stopPropagation();});
         _fKInp.addEventListener('change',function(){_sbS.fishApiKey=this.value.trim();_W();});
         _fKRow.appendChild(_fKLbl);_fKRow.appendChild(_fKInp);cF.appendChild(_fKRow);
+        cF.appendChild((function(){var s=_div('');s.style.cssText='height:.5px;background:rgba(255,255,255,.06);margin:0 14px;';return s;})());
+        /* 本地代理端口 */
+        var _fPRow=_div('v8row');_fPRow.style.cssText='padding:12px 14px;align-items:center;gap:8px;';
+        _fPRow.appendChild(_div('v8rb','<div class="v8rt">本地代理端口</div><div class="v8rs">fish-tts-proxy 启动后监听的端口，没改过默认就是 8765</div>'));
+        var _fPInp=TOPDOC.createElement('input');_fPInp.className='v8fi';_fPInp.type='text';_fPInp.style.cssText='max-width:90px;font-size:13px;flex-shrink:0;text-align:center;';_fPInp.value=_sbS.fishProxyPort||'8765';
+        _fPInp.addEventListener('mousedown',function(e){e.stopPropagation();});
+        _fPInp.addEventListener('change',function(){_sbS.fishProxyPort=this.value.trim()||'8765';_W();});
+        _fPRow.appendChild(_fPInp);cF.appendChild(_fPRow);
         cF.appendChild((function(){var s=_div('');s.style.cssText='height:.5px;background:rgba(255,255,255,.06);margin:0 14px;';return s;})());
         /* Model */
         var _fMRow=_div('v8row');_fMRow.style.cssText='padding:12px 14px;align-items:center;gap:8px;';
