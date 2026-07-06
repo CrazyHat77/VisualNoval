@@ -926,20 +926,22 @@ function openViewer(mode){
     if(sbS.fishTopP!==undefined && sbS.fishTopP!==null && sbS.fishTopP!==''){
       body.top_p=parseFloat(sbS.fishTopP);
     }
-    /* Fish Audio 不支持浏览器直连(无 CORS)，走酒馆本地服务端插件 vnm-fish-tts 转发 */
-    var proxyUrl=(TOP.location&&TOP.location.origin?TOP.location.origin:'')+'/api/plugins/vnm-fish-tts/tts';
-    TOP.fetch(proxyUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({apiKey:apikey,model:model,payload:body})})
+    /* Fish Audio 不支持浏览器直连(无 CORS)，走酒馆自带的 /proxy/ 转发(需在 config.yaml 开 enableCorsProxy) */
+    var proxyUrl='/proxy/https://api.fish.audio/v1/tts';
+    TOP.fetch(proxyUrl,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apikey,'model':model},body:JSON.stringify(body)})
       .then(function(r){
-        if(r.status===404){ throw new Error('未检测到 vnm-fish-tts 本地代理插件，请按说明安装到酒馆 plugins 目录并重启酒馆'); }
+        if(r.status===404){ throw new Error('酒馆的 CORS 代理未开启，请在酒馆 config.yaml 里把 enableCorsProxy 改成 true 并重启酒馆'); }
         if(!r.ok){
-          return r.json().catch(function(){return{};}).then(function(j){
-            var msg=(j&&j.error)||('Fish Audio HTTP '+r.status);
+          return r.text().then(function(t){
+            var msg='Fish Audio HTTP '+r.status;
+            try{ var j=JSON.parse(t); if(j&&j.message)msg=j.message; else if(j&&j.error)msg=j.error; }catch(e2){}
             throw new Error(msg);
           });
         }
-        return r.blob();
+        return r.arrayBuffer();
       })
-      .then(function(blob){
+      .then(function(buf){
+        var blob=new TOP.Blob([buf],{type:'audio/mpeg'});
         var url=(TOP.URL||URL).createObjectURL(blob);
         _vtCachePut(key,url);
         cb(null,url);
@@ -3270,6 +3272,7 @@ function openViewer(mode){
         /* ── Fish Audio 配置区（provider=fishaudio 时展开） ── */
         var _fishSec=_div('');
         _fishSec.appendChild(_div('v8sec','Fish Audio 配置'));
+        var _fHint=_div('');_fHint.style.cssText='font-size:11px;color:rgba(255,255,255,.4);line-height:1.5;padding:0 4px 8px;';_fHint.textContent='Fish Audio 服务器不支持浏览器直连，需要酒馆开启内置 CORS 代理才能用：打开酒馆 config.yaml，把 enableCorsProxy 改成 true，然后重启酒馆。';_fishSec.appendChild(_fHint);
         var cF=_div('v8card');
         /* API Key */
         var _fKRow=_div('v8row');_fKRow.style.cssText='flex-direction:column;align-items:stretch;padding:12px 14px;gap:6px;';
