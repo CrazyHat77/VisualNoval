@@ -911,7 +911,7 @@ function openViewer(mode){
   function _vtRequestFish(sbS, vid, spd, text, key, cb){
     var apikey=sbS.fishApiKey||'';
     if(!apikey){ cb('未配置 Fish Audio API Key'); return; }
-    var model=sbS.fishModel||'s2-pro';
+    var model=sbS.fishModel||'s2.1-pro';
     var body={
       text:text,
       format:'mp3',
@@ -926,15 +926,14 @@ function openViewer(mode){
     if(sbS.fishTopP!==undefined && sbS.fishTopP!==null && sbS.fishTopP!==''){
       body.top_p=parseFloat(sbS.fishTopP);
     }
-    TOP.fetch('https://api.fish.audio/v1/tts',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apikey,'model':model},body:JSON.stringify(body)})
+    /* Fish Audio 不支持浏览器直连(无 CORS)，走酒馆本地服务端插件 vnm-fish-tts 转发 */
+    var proxyUrl=(TOP.location&&TOP.location.origin?TOP.location.origin:'')+'/api/plugins/vnm-fish-tts/tts';
+    TOP.fetch(proxyUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({apiKey:apikey,model:model,payload:body})})
       .then(function(r){
+        if(r.status===404){ throw new Error('未检测到 vnm-fish-tts 本地代理插件，请按说明安装到酒馆 plugins 目录并重启酒馆'); }
         if(!r.ok){
-          return r.text().then(function(t){
-            var msg='Fish Audio HTTP '+r.status;
-            if(r.status===401)msg='Fish Audio Key 无效';
-            else if(r.status===402)msg='Fish Audio 余额不足';
-            else if(r.status===400)msg='Fish Audio 参数错误(请检查 reference_id): '+t;
-            else if(r.status===429)msg='Fish Audio 请求过于频繁，请稍后再试';
+          return r.json().catch(function(){return{};}).then(function(j){
+            var msg=(j&&j.error)||('Fish Audio HTTP '+r.status);
             throw new Error(msg);
           });
         }
@@ -1443,7 +1442,7 @@ function openViewer(mode){
       ttsModel:      _d.ttsModel      ||'speech-02-hd',
       ttsProvider:   _d.ttsProvider   ||'minimax',
       fishApiKey:    _d.fishApiKey    ||'',
-      fishModel:     _d.fishModel     ||'s2-pro',
+      fishModel:     _d.fishModel     ||'s2.1-pro',
       fishLatency:   _d.fishLatency   ||'normal',
       fishTemperature:(_d.fishTemperature!==undefined&&_d.fishTemperature!==null)?_d.fishTemperature:'',
       fishTopP:      (_d.fishTopP!==undefined&&_d.fishTopP!==null)?_d.fishTopP:'',
@@ -3282,9 +3281,9 @@ function openViewer(mode){
         cF.appendChild((function(){var s=_div('');s.style.cssText='height:.5px;background:rgba(255,255,255,.06);margin:0 14px;';return s;})());
         /* Model */
         var _fMRow=_div('v8row');_fMRow.style.cssText='padding:12px 14px;align-items:center;gap:8px;';
-        _fMRow.appendChild(_div('v8rb','<div class="v8rt">语音模型</div><div class="v8rs">s2-pro 质量更好、支持多说话人；s1 更省钱</div>'));
-        var _fMSel=TOPDOC.createElement('select');_fMSel.className='v8fi';_fMSel.style.cssText='max-width:120px;font-size:13px;flex-shrink:0;';
-        [['s2-pro','s2-pro'],['s1','s1']].forEach(function(o){var op=TOPDOC.createElement('option');op.value=o[0];op.textContent=o[1];if((_sbS.fishModel||'s2-pro')===o[0])op.selected=true;_fMSel.appendChild(op);});
+        _fMRow.appendChild(_div('v8rb','<div class="v8rt">语音模型</div><div class="v8rs">s2.1-pro 官方推荐(¥15/百万字节)；-free 免费测试版；s2-pro 上一代；s1 更早期版本</div>'));
+        var _fMSel=TOPDOC.createElement('select');_fMSel.className='v8fi';_fMSel.style.cssText='max-width:150px;font-size:13px;flex-shrink:0;';
+        [['s2.1-pro','s2.1-pro (推荐)'],['s2.1-pro-free','s2.1-pro-free (免费)'],['s2-pro','s2-pro'],['s1','s1']].forEach(function(o){var op=TOPDOC.createElement('option');op.value=o[0];op.textContent=o[1];if((_sbS.fishModel||'s2.1-pro')===o[0])op.selected=true;_fMSel.appendChild(op);});
         _fMSel.addEventListener('mousedown',function(e){e.stopPropagation();});
         _fMSel.addEventListener('change',function(){_sbS.fishModel=this.value;_W();});
         _fMRow.appendChild(_fMSel);cF.appendChild(_fMRow);
