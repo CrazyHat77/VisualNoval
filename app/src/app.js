@@ -915,9 +915,9 @@ function openViewer(mode){
     var body={
       text:text,
       format:'mp3',
-      mp3_bitrate:128,
+      mp3_bitrate:64,
       prosody:{speed:spd,volume:0},
-      latency:sbS.fishLatency||'normal'
+      latency:sbS.fishLatency||'balanced'
     };
     if(vid) body.reference_id=vid;
     if(sbS.fishTemperature!==undefined && sbS.fishTemperature!==null && sbS.fishTemperature!==''){
@@ -1451,7 +1451,7 @@ function openViewer(mode){
       ttsProvider:   _d.ttsProvider   ||'minimax',
       fishApiKey:    _d.fishApiKey    ||'',
       fishModel:     _d.fishModel     ||'s2.1-pro',
-      fishLatency:   _d.fishLatency   ||'normal',
+      fishLatency:   _d.fishLatency   ||'balanced',
       fishTemperature:(_d.fishTemperature!==undefined&&_d.fishTemperature!==null)?_d.fishTemperature:'',
       fishTopP:      (_d.fishTopP!==undefined&&_d.fishTopP!==null)?_d.fishTopP:'',
       fishProxyPort: _d.fishProxyPort ||'8765',
@@ -3332,7 +3332,7 @@ function openViewer(mode){
         var _fLatRow=_div('');_fLatRow.style.cssText='display:flex;align-items:center;justify-content:space-between;margin:8px 0;';
         _fLatRow.appendChild(_div('','<span style="font-size:12px;color:rgba(255,255,255,.7);">latency</span>'));
         var _fLatSel=TOPDOC.createElement('select');_fLatSel.className='v8fi';_fLatSel.style.cssText='width:110px;';
-        [['normal','normal(默认)'],['balanced','balanced'],['low','low']].forEach(function(o){var op=TOPDOC.createElement('option');op.value=o[0];op.textContent=o[1];if((_sbS.fishLatency||'normal')===o[0])op.selected=true;_fLatSel.appendChild(op);});
+        [['balanced','balanced(默认·更快)'],['low','low(最快·质量略降)'],['normal','normal(最慢·质量最好)']].forEach(function(o){var op=TOPDOC.createElement('option');op.value=o[0];op.textContent=o[1];if((_sbS.fishLatency||'balanced')===o[0])op.selected=true;_fLatSel.appendChild(op);});
         _fLatSel.addEventListener('mousedown',function(e){e.stopPropagation();});
         _fLatSel.addEventListener('change',function(){_sbS.fishLatency=this.value;_W();});
         _fLatRow.appendChild(_fLatSel);_fAdvBody.appendChild(_fLatRow);

@@ -93,9 +93,10 @@ const server = http.createServer((req, res) => {
           return;
         }
 
-        const buf = Buffer.from(await upstream.arrayBuffer());
         res.writeHead(200, { 'Content-Type': 'audio/mpeg' });
-        res.end(buf);
+        // 直接把上游的流原样转发下去，不等全部生成完再发，减少多一趟缓冲的延迟
+        const { Readable } = require('stream');
+        Readable.fromWeb(upstream.body).pipe(res);
       } catch (e) {
         console.error('[vnm-fish-tts-proxy]', e);
         res.writeHead(500, { 'Content-Type': 'application/json' });
