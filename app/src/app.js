@@ -847,18 +847,45 @@ function openViewer(mode){
     return a;
   }
 
+  function _vtProvider(ch, sbS){
+    return (ch && ch.ttsProvider) || sbS.ttsProvider || 'minimax';
+  }
+
+  function _vtVoiceId(ch, provider){
+    if(provider==='fishaudio') return (ch && ch.fishVoiceId) || '';
+    return (ch && ch.ttsVoiceId) || 'female-shaonv';
+  }
+
+  function _vtVoiceKeyFor(ch, lang, text){
+    var sbS = _vtGetSbS();
+    var provider = _vtProvider(ch, sbS);
+    var vid = _vtVoiceId(ch, provider);
+    return _vtKey(lang, text, provider+':'+vid);
+  }
+
   function _vtRequest(nm,lang,text,cb){
     var ch=_vtCharByName(nm);
     if(ch && !ch.ttsEnabled){ cb('角色未开启TTS'); return; }
-    var vid=(ch && ch.ttsVoiceId)||'female-shaonv', spd=ch ? (parseFloat(ch.ttsSpeed)||1) : 1, key=_vtKey(lang,text,vid);
-    if(_vtCache.map[key]){ cb(null,_vtCache.map[key]); return; }
-    
     var sbS = _vtGetSbS();
+    var provider = _vtProvider(ch, sbS);
+    var vid = _vtVoiceId(ch, provider);
+    var spd = ch ? (parseFloat(ch.ttsSpeed)||1) : 1;
+    var key = _vtKey(lang,text,provider+':'+vid);
+    if(_vtCache.map[key]){ cb(null,_vtCache.map[key]); return; }
+
+    if(provider==='fishaudio'){
+      _vtRequestFish(sbS, vid, spd, text, key, cb);
+    } else {
+      _vtRequestMiniMax(sbS, ch, vid, spd, lang, text, key, cb);
+    }
+  }
+
+  function _vtRequestMiniMax(sbS, ch, vid, spd, lang, text, key, cb){
     var host=sbS.ttsApiHost||'https://api.minimax.chat';
     while(host.slice(-1)==='/'){ host=host.slice(0,-1); }
     var apikey=sbS.ttsApiKey||'', gid=sbS.ttsGroupId||'';
     if(!apikey||!gid){ cb('未配置 MiniMax Key/GroupId'); return; }
-    
+
     var ttsLang = ch ? (ch.ttsLanguage || '') : '';
     var voiceSetting = {voice_id:vid,speed:spd,vol:1,pitch:0};
     if(ttsLang){
@@ -874,6 +901,46 @@ function openViewer(mode){
         var bytes = _vtHex(hex);
         if(!bytes.length)throw new Error('音频解码为空');
         var blob=new TOP.Blob([bytes],{type:'audio/mpeg'});
+        var url=(TOP.URL||URL).createObjectURL(blob);
+        _vtCachePut(key,url);
+        cb(null,url);
+      })
+      .catch(function(e){ cb(e.message||String(e)); });
+  }
+
+  function _vtRequestFish(sbS, vid, spd, text, key, cb){
+    var apikey=sbS.fishApiKey||'';
+    if(!apikey){ cb('未配置 Fish Audio API Key'); return; }
+    var model=sbS.fishModel||'s2-pro';
+    var body={
+      text:text,
+      format:'mp3',
+      mp3_bitrate:128,
+      prosody:{speed:spd,volume:0},
+      latency:sbS.fishLatency||'normal'
+    };
+    if(vid) body.reference_id=vid;
+    if(sbS.fishTemperature!==undefined && sbS.fishTemperature!==null && sbS.fishTemperature!==''){
+      body.temperature=parseFloat(sbS.fishTemperature);
+    }
+    if(sbS.fishTopP!==undefined && sbS.fishTopP!==null && sbS.fishTopP!==''){
+      body.top_p=parseFloat(sbS.fishTopP);
+    }
+    TOP.fetch('https://api.fish.audio/v1/tts',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apikey,'model':model},body:JSON.stringify(body)})
+      .then(function(r){
+        if(!r.ok){
+          return r.text().then(function(t){
+            var msg='Fish Audio HTTP '+r.status;
+            if(r.status===401)msg='Fish Audio Key 无效';
+            else if(r.status===402)msg='Fish Audio 余额不足';
+            else if(r.status===400)msg='Fish Audio 参数错误(请检查 reference_id): '+t;
+            else if(r.status===429)msg='Fish Audio 请求过于频繁，请稍后再试';
+            throw new Error(msg);
+          });
+        }
+        return r.blob();
+      })
+      .then(function(blob){
         var url=(TOP.URL||URL).createObjectURL(blob);
         _vtCachePut(key,url);
         cb(null,url);
@@ -903,8 +970,7 @@ function openViewer(mode){
       e.stopPropagation();
       if(!_vtCur) return;
       var ch = _vtCharByName(_vtCur.name);
-      var vid = ch ? (ch.ttsVoiceId || 'female-shaonv') : 'female-shaonv';
-      var key = _vtKey(_vtCur.lang, _vtCur.text, vid);
+      var key = _vtVoiceKeyFor(ch, _vtCur.lang, _vtCur.text);
       if(_vtCache.map[key]){
         _vtPlay(_vtCache.map[key]);
         return;
@@ -942,8 +1008,7 @@ function openViewer(mode){
     }
     _vtCur=s.voice;
     
-    var vid = (ch && ch.ttsVoiceId) || 'female-shaonv';
-    var key = _vtKey(s.voice.lang, s.voice.text, vid);
+    var key = _vtVoiceKeyFor(ch, s.voice.lang, s.voice.text);
     var isCached = !!_vtCache.map[key];
     
     if((sbS.voiceTagMode||'manual')==='auto'){
@@ -978,8 +1043,7 @@ function openViewer(mode){
     var ttsEnabled = ch ? ch.ttsEnabled : false;
     if (!ttsEnabled) return;
     
-    var vid = (ch && ch.ttsVoiceId) || 'female-shaonv';
-    var key = _vtKey(v.lang, v.text, vid);
+    var key = _vtVoiceKeyFor(ch, v.lang, v.text);
     if (_vtCache.map[key]) return;
     
     console.log('[VNM v9.33] Auto prefetching voice for NEXT sentence (' + nextIdx + '): ' + v.name);
@@ -1377,6 +1441,12 @@ function openViewer(mode){
       ttsApiKey:     _d.ttsApiKey     ||'',
       ttsApiHost:    _d.ttsApiHost    ||'https://api.minimax.chat',
       ttsModel:      _d.ttsModel      ||'speech-02-hd',
+      ttsProvider:   _d.ttsProvider   ||'minimax',
+      fishApiKey:    _d.fishApiKey    ||'',
+      fishModel:     _d.fishModel     ||'s2-pro',
+      fishLatency:   _d.fishLatency   ||'normal',
+      fishTemperature:(_d.fishTemperature!==undefined&&_d.fishTemperature!==null)?_d.fishTemperature:'',
+      fishTopP:      (_d.fishTopP!==undefined&&_d.fishTopP!==null)?_d.fishTopP:'',
       voiceTagEnabled: (_d.voiceTagEnabled!==undefined)?_d.voiceTagEnabled:false,
       voiceTagMode:  _d.voiceTagMode  ||'manual',
       voiceTagLang:  _d.voiceTagLang  ||'中文',
@@ -2485,6 +2555,42 @@ function openViewer(mode){
           ttsTogRow.appendChild(_tog(char.ttsEnabled,function(v){char.ttsEnabled=v;_W();if(TOP._v8render)TOP._v8render();}));
           ttsCard.appendChild(ttsTogRow);
           if(char.ttsEnabled){
+            /* ── 语音来源（跟随全局 / MiniMax / Fish Audio） ── */
+            var _cpSep0=_div('');_cpSep0.style.cssText='height:.5px;background:rgba(255,255,255,.055);margin:0 14px;';ttsCard.appendChild(_cpSep0);
+            var provRow=_div('v8row');provRow.style.flexDirection='column';provRow.style.alignItems='stretch';provRow.style.padding='12px 14px';provRow.style.gap='6px';provRow.style.cursor='default';
+            provRow.appendChild(_div('','<span style="font-size:11px;color:rgba(255,255,255,.35);font-weight:500;">语音来源</span>'));
+            var provSeg=_div('');provSeg.style.cssText='display:flex;gap:6px;';
+            var _pBtnAuto=TOPDOC.createElement('button');
+            var _pBtnMM=TOPDOC.createElement('button');
+            var _pBtnFish=TOPDOC.createElement('button');
+            function _pBtnStyle(btn,on){
+              btn.style.cssText='flex:1;padding:7px 0;border-radius:9px;border:.5px solid '+(on?'rgba(255,255,255,.5)':'rgba(255,255,255,.14)')+';background:'+(on?'rgba(255,255,255,.16)':'rgba(255,255,255,.05)')+';color:'+(on?'rgba(255,255,255,.95)':'rgba(255,255,255,.5)')+';font-size:11px;font-weight:600;font-family:inherit;cursor:pointer;';
+            }
+            _pBtnAuto.textContent='跟随全局';
+            _pBtnMM.textContent='MiniMax';
+            _pBtnFish.textContent='Fish Audio';
+            function _effProvider(){
+              return char.ttsProvider||_sbS.ttsProvider||'minimax';
+            }
+            function _refreshProvUI(){
+              var cur=char.ttsProvider||'';
+              _pBtnStyle(_pBtnAuto,cur==='');
+              _pBtnStyle(_pBtnMM,cur==='minimax');
+              _pBtnStyle(_pBtnFish,cur==='fishaudio');
+              var eff=_effProvider();
+              mmFields.style.display = eff==='minimax' ? '' : 'none';
+              fishFields.style.display = eff==='fishaudio' ? '' : 'none';
+            }
+            [_pBtnAuto,_pBtnMM,_pBtnFish].forEach(function(b){b.addEventListener('mousedown',function(e){e.stopPropagation();});});
+            _pBtnAuto.addEventListener('click',function(e){e.stopPropagation();char.ttsProvider='';_W();_refreshProvUI();});
+            _pBtnMM.addEventListener('click',function(e){e.stopPropagation();char.ttsProvider='minimax';_W();_refreshProvUI();});
+            _pBtnFish.addEventListener('click',function(e){e.stopPropagation();char.ttsProvider='fishaudio';_W();_refreshProvUI();});
+            provSeg.appendChild(_pBtnAuto);provSeg.appendChild(_pBtnMM);provSeg.appendChild(_pBtnFish);
+            provRow.appendChild(provSeg);ttsCard.appendChild(provRow);
+
+            var mmFields=_div('');
+            var fishFields=_div('');
+
             /* MiniMax 预置音色 */
             var MM_VOICES=[
               {v:'female-shaonv',       l:'少女 female-shaonv'},
@@ -2539,9 +2645,9 @@ function openViewer(mode){
               else{customInp.style.display='none';char.ttsVoiceId=this.value;_W();}
             });
             vidRow.appendChild(vidSel);vidRow.appendChild(customInp);
-            ttsCard.appendChild(vidRow);
+            mmFields.appendChild(vidRow);
             /* ── 语言 行 ── */
-            var _sep2=_div('');_sep2.style.cssText='height:.5px;background:rgba(255,255,255,.055);margin:0 14px;';ttsCard.appendChild(_sep2);
+            var _sep2=_div('');_sep2.style.cssText='height:.5px;background:rgba(255,255,255,.055);margin:0 14px;';mmFields.appendChild(_sep2);
             var langRow=_div('v8row');langRow.style.padding='12px 14px';langRow.style.cursor='default';
             langRow.appendChild(_div('v8rb','<div class="v8rt" style="font-size:14px;">语言</div><div class="v8rs">影响发音和语调</div>'));
             var langSel=TOPDOC.createElement('select');
@@ -2560,8 +2666,20 @@ function openViewer(mode){
             });
             langSel.addEventListener('mousedown',function(e){e.stopPropagation();});
             langSel.addEventListener('change',function(){char.ttsLanguage=this.value;_W();});
-            langRow.appendChild(langSel);ttsCard.appendChild(langRow);
-            /* ── 语速 行 ── */
+            langRow.appendChild(langSel);mmFields.appendChild(langRow);
+            ttsCard.appendChild(mmFields);
+
+            /* ── Fish Audio: Reference/Voice ID 行 ── */
+            var fvidRow=_div('v8row');fvidRow.style.flexDirection='column';fvidRow.style.alignItems='stretch';fvidRow.style.padding='12px 14px';fvidRow.style.gap='6px';fvidRow.style.cursor='default';
+            fvidRow.appendChild(_div('','<span style="font-size:11px;color:rgba(255,255,255,.35);font-weight:500;">Voice / Reference ID</span><div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:2px;">去 fish.audio 网站找到音色页面，复制模型 ID 填在这里</div>'));
+            var fvidInp=TOPDOC.createElement('input');fvidInp.className='v8fi';fvidInp.type='text';fvidInp.placeholder='例如 ca3007f96ae7499ab87d27ea3599956a';fvidInp.value=char.fishVoiceId||'';
+            fvidInp.addEventListener('mousedown',function(e){e.stopPropagation();});
+            fvidInp.addEventListener('change',function(){char.fishVoiceId=this.value.trim();_W();});
+            fvidRow.appendChild(fvidInp);fishFields.appendChild(fvidRow);
+            var _sepF=_div('');_sepF.style.cssText='height:.5px;background:rgba(255,255,255,.055);margin:0 14px;';fishFields.appendChild(_sepF);
+            ttsCard.appendChild(fishFields);
+
+            /* ── 语速 行（MiniMax / Fish Audio 共用） ── */
             var _sep3=_div('');_sep3.style.cssText='height:.5px;background:rgba(255,255,255,.055);margin:0 14px;';ttsCard.appendChild(_sep3);
             var speedRow=_div('v8row');speedRow.style.padding='12px 14px';speedRow.style.cursor='default';
             speedRow.appendChild(_div('v8rb','<div class="v8rt" style="font-size:14px;">语速</div><div class="v8rs">0.5（慢）~ 2.0（快），默认 1.0</div>'));
@@ -2574,6 +2692,7 @@ function openViewer(mode){
             speedWrap.appendChild(speedInp);
             speedWrap.appendChild(_div('','<span style="font-size:12px;color:rgba(255,255,255,.35);">x</span>'));
             speedRow.appendChild(speedWrap);ttsCard.appendChild(speedRow);
+            _refreshProvUI();
           }
           body.appendChild(ttsCard);
         }
@@ -2633,7 +2752,7 @@ function openViewer(mode){
         var coreItems=[
           {l:'API 设置',s:'URL · 密钥 · 模型',pg:'s-api',ic:'<path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/>'},
                     {l:'世界书',s:'条目管理 · 激活状态',pg:'s-wb',ic:'<path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>'},
-          {l:'MiniMax TTS',s:'语音合成 · API 配置',pg:'s-tts',ic:'<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/>'},
+          {l:'语音合成 TTS',s:'MiniMax / Fish Audio',pg:'s-tts',ic:'<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/>'},
                   ];
         body.appendChild(_div('v8sec','功能配置'));
         var c1=_div('v8card');
@@ -3037,7 +3156,7 @@ function openViewer(mode){
 
       /* ════════ SETTINGS: TTS ════════ */
       function _pgSTts(){
-        var pg=_div('v8pg v8sl');pg.appendChild(_navbar('MiniMax TTS','settings'));
+        var pg=_div('v8pg v8sl');pg.appendChild(_navbar('语音合成 TTS','settings'));
         var body=_div('');body.style.cssText='flex:1;overflow-y:auto;padding:4px 0 20px;';
         body.appendChild(_div('v8sec','全局开关'));
         var c1=_div('v8card');
@@ -3045,7 +3164,37 @@ function openViewer(mode){
         togRow.appendChild(_div('v8rb','<div class="v8rt">启用 TTS 语音合成</div>'));
         togRow.appendChild(_tog(_sbS.ttsEnabled,function(v){_sbS.ttsEnabled=v;_W();}));
         c1.appendChild(togRow);body.appendChild(c1);
-        body.appendChild(_div('v8sec','API 配置'));
+
+        /* ── 语音来源切换 ── */
+        body.appendChild(_div('v8sec','语音来源'));
+        var cSrc=_div('v8card');
+        var srcRow=_div('v8row');srcRow.style.cssText='padding:12px 14px;flex-direction:column;align-items:stretch;gap:8px;cursor:default;';
+        srcRow.appendChild(_div('','<div class="v8rt">默认语音源</div><div class="v8rs">未单独设置来源的角色都用这一家；角色也可在通讯录里单独覆盖</div>'));
+        var srcSeg=_div('');srcSeg.style.cssText='display:flex;gap:6px;';
+        var _srcBtnMM=TOPDOC.createElement('button');
+        var _srcBtnFish=TOPDOC.createElement('button');
+        function _srcBtnStyle(btn,on){
+          btn.style.cssText='flex:1;padding:8px 0;border-radius:10px;border:.5px solid '+(on?'rgba(255,255,255,.5)':'rgba(255,255,255,.14)')+';background:'+(on?'rgba(255,255,255,.16)':'rgba(255,255,255,.05)')+';color:'+(on?'rgba(255,255,255,.95)':'rgba(255,255,255,.5)')+';font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .12s;';
+        }
+        _srcBtnMM.textContent='MiniMax';
+        _srcBtnFish.textContent='Fish Audio';
+        function _refreshSrcUI(){
+          var provider=_sbS.ttsProvider||'minimax';
+          _srcBtnStyle(_srcBtnMM, provider==='minimax');
+          _srcBtnStyle(_srcBtnFish, provider==='fishaudio');
+          _mmSec.style.display = provider==='minimax' ? '' : 'none';
+          _fishSec.style.display = provider==='fishaudio' ? '' : 'none';
+        }
+        _srcBtnMM.addEventListener('mousedown',function(e){e.stopPropagation();});
+        _srcBtnFish.addEventListener('mousedown',function(e){e.stopPropagation();});
+        _srcBtnMM.addEventListener('click',function(e){e.stopPropagation();_sbS.ttsProvider='minimax';_W();_refreshSrcUI();});
+        _srcBtnFish.addEventListener('click',function(e){e.stopPropagation();_sbS.ttsProvider='fishaudio';_W();_refreshSrcUI();});
+        srcSeg.appendChild(_srcBtnMM);srcSeg.appendChild(_srcBtnFish);
+        srcRow.appendChild(srcSeg);cSrc.appendChild(srcRow);body.appendChild(cSrc);
+
+        /* ── MiniMax 配置区（provider=minimax 时展开） ── */
+        var _mmSec=_div('');
+        _mmSec.appendChild(_div('v8sec','MiniMax 配置'));
         var c2=_div('v8card');
         /* Group ID */
         var _tGRow=_div('v8row');_tGRow.style.cssText='flex-direction:column;align-items:stretch;padding:12px 14px;gap:6px;';
@@ -3117,10 +3266,66 @@ function openViewer(mode){
           });
         });
         _tMRow.appendChild(_tMSel);_tMRow.appendChild(_tFBtn);c2.appendChild(_tMRow);
-        body.appendChild(c2);
+        _mmSec.appendChild(c2);body.appendChild(_mmSec);
+
+        /* ── Fish Audio 配置区（provider=fishaudio 时展开） ── */
+        var _fishSec=_div('');
+        _fishSec.appendChild(_div('v8sec','Fish Audio 配置'));
+        var cF=_div('v8card');
+        /* API Key */
+        var _fKRow=_div('v8row');_fKRow.style.cssText='flex-direction:column;align-items:stretch;padding:12px 14px;gap:6px;';
+        var _fKLbl=_div('');_fKLbl.style.cssText='font-size:11px;color:rgba(255,255,255,.38);font-weight:500;';_fKLbl.textContent='API Key';
+        var _fKInp=TOPDOC.createElement('input');_fKInp.className='v8fi';_fKInp.type='password';_fKInp.placeholder='Fish Audio API Key';_fKInp.value=_sbS.fishApiKey||'';
+        _fKInp.addEventListener('mousedown',function(e){e.stopPropagation();});
+        _fKInp.addEventListener('change',function(){_sbS.fishApiKey=this.value.trim();_W();});
+        _fKRow.appendChild(_fKLbl);_fKRow.appendChild(_fKInp);cF.appendChild(_fKRow);
+        cF.appendChild((function(){var s=_div('');s.style.cssText='height:.5px;background:rgba(255,255,255,.06);margin:0 14px;';return s;})());
+        /* Model */
+        var _fMRow=_div('v8row');_fMRow.style.cssText='padding:12px 14px;align-items:center;gap:8px;';
+        _fMRow.appendChild(_div('v8rb','<div class="v8rt">语音模型</div><div class="v8rs">s2-pro 质量更好、支持多说话人；s1 更省钱</div>'));
+        var _fMSel=TOPDOC.createElement('select');_fMSel.className='v8fi';_fMSel.style.cssText='max-width:120px;font-size:13px;flex-shrink:0;';
+        [['s2-pro','s2-pro'],['s1','s1']].forEach(function(o){var op=TOPDOC.createElement('option');op.value=o[0];op.textContent=o[1];if((_sbS.fishModel||'s2-pro')===o[0])op.selected=true;_fMSel.appendChild(op);});
+        _fMSel.addEventListener('mousedown',function(e){e.stopPropagation();});
+        _fMSel.addEventListener('change',function(){_sbS.fishModel=this.value;_W();});
+        _fMRow.appendChild(_fMSel);cF.appendChild(_fMRow);
+        cF.appendChild((function(){var s=_div('');s.style.cssText='height:.5px;background:rgba(255,255,255,.06);margin:0 14px;';return s;})());
+        /* 高级参数（折叠，默认收起） */
+        var _fAdvToggleRow=_div('v8row tap');_fAdvToggleRow.style.cssText='padding:12px 14px;';
+        _fAdvToggleRow.appendChild(_div('v8rb','<div class="v8rt">高级参数</div><div class="v8rs">temperature / top_p / latency，不清楚可不用管</div>'));
+        var _fAdvArrow=_div('');_fAdvArrow.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>';
+        _fAdvToggleRow.appendChild(_fAdvArrow);
+        var _fAdvBody=_div('');_fAdvBody.style.cssText='display:none;padding:0 14px 12px;';
+        _fAdvToggleRow.addEventListener('click',function(e){
+          e.stopPropagation();
+          var open=_fAdvBody.style.display==='none';
+          _fAdvBody.style.display=open?'block':'none';
+          _fAdvArrow.style.transform=open?'rotate(180deg)':'rotate(0deg)';
+        });
+        cF.appendChild(_fAdvToggleRow);
+        function _fAdvNumRow(label,key,ph){
+          var row=_div('');row.style.cssText='display:flex;align-items:center;justify-content:space-between;margin:8px 0;';
+          row.appendChild(_div('','<span style="font-size:12px;color:rgba(255,255,255,.7);">'+label+'</span>'));
+          var inp=TOPDOC.createElement('input');inp.className='v8fi';inp.type='number';inp.step='0.05';inp.min='0';inp.max='1';inp.style.cssText='width:80px;';inp.placeholder=ph;inp.value=_sbS[key]!==undefined&&_sbS[key]!==null?_sbS[key]:'';
+          inp.addEventListener('mousedown',function(e){e.stopPropagation();});
+          inp.addEventListener('change',function(){_sbS[key]=this.value.trim();_W();});
+          row.appendChild(inp);return row;
+        }
+        _fAdvBody.appendChild(_fAdvNumRow('temperature','fishTemperature','0.7'));
+        _fAdvBody.appendChild(_fAdvNumRow('top_p','fishTopP','0.7'));
+        var _fLatRow=_div('');_fLatRow.style.cssText='display:flex;align-items:center;justify-content:space-between;margin:8px 0;';
+        _fLatRow.appendChild(_div('','<span style="font-size:12px;color:rgba(255,255,255,.7);">latency</span>'));
+        var _fLatSel=TOPDOC.createElement('select');_fLatSel.className='v8fi';_fLatSel.style.cssText='width:110px;';
+        [['normal','normal(默认)'],['balanced','balanced'],['low','low']].forEach(function(o){var op=TOPDOC.createElement('option');op.value=o[0];op.textContent=o[1];if((_sbS.fishLatency||'normal')===o[0])op.selected=true;_fLatSel.appendChild(op);});
+        _fLatSel.addEventListener('mousedown',function(e){e.stopPropagation();});
+        _fLatSel.addEventListener('change',function(){_sbS.fishLatency=this.value;_W();});
+        _fLatRow.appendChild(_fLatSel);_fAdvBody.appendChild(_fLatRow);
+        cF.appendChild(_fAdvBody);
+        _fishSec.appendChild(cF);body.appendChild(_fishSec);
+        _refreshSrcUI();
+
         /* ── VN 语音条 (VoiceTag) ── */
         var c3=_div('');c3.style.cssText='background:rgba(255,255,255,.05);border:.5px solid rgba(255,255,255,.12);border-radius:16px;padding:14px;margin-top:14px;';
-        c3.appendChild(_div('','<div style="font-size:13px;font-weight:600;color:rgba(255,255,255,.9);margin-bottom:4px;">VN 语音条 (VoiceTag)</div><div style="font-size:11px;color:rgba(255,255,255,.45);margin-bottom:10px;line-height:1.5;">翻到开启TTS的角色台词时，用 MiniMax 朗读。需在通讯录给角色开启 TTS。</div>'));
+        c3.appendChild(_div('','<div style="font-size:13px;font-weight:600;color:rgba(255,255,255,.9);margin-bottom:4px;">VN 语音条 (VoiceTag)</div><div style="font-size:11px;color:rgba(255,255,255,.45);margin-bottom:10px;line-height:1.5;">翻到开启TTS的角色台词时朗读，用哪一家语音由角色/默认设置决定。需在通讯录给角色开启 TTS。</div>'));
         var _vRow=_div('');_vRow.style.cssText='display:flex;align-items:center;justify-content:space-between;margin:8px 0;';
         _vRow.appendChild(_div('','<span style="font-size:12px;color:rgba(255,255,255,.78);">启用语音条</span>'));
         _vRow.appendChild(_tog(_sbS.voiceTagEnabled,function(v){_sbS.voiceTagEnabled=v;_W();}));c3.appendChild(_vRow);
@@ -3972,7 +4177,7 @@ function openViewer(mode){
       var addB=_pbtn('+ 添加','blue');
       addB.addEventListener('click',function(e){
         e.stopPropagation();
-        var nc={id:_uuid(),name:'',persona:'',ttsEnabled:false,ttsVoiceId:'',ttsLanguage:'',ttsSpeed:1.0};_sbS.characters.push(nc);
+        var nc={id:_uuid(),name:'',persona:'',ttsEnabled:false,ttsProvider:'',ttsVoiceId:'',fishVoiceId:'',ttsLanguage:'',ttsSpeed:1.0};_sbS.characters.push(nc);
         _ui.editCharId=nc.id;_W();_renderTab();
       });
       chrHdr.appendChild(chlbl);chrHdr.appendChild(addB);
@@ -4037,28 +4242,41 @@ function openViewer(mode){
           ttsTogRow.appendChild(ttsTogLbl);ttsTogRow.appendChild(ttsTogBtn);
           var ttsFields=TOPDOC.createElement('div');
           ttsFields.style.cssText='display:'+(char.ttsEnabled?'flex':'none')+';flex-direction:column;gap:4px;padding:4px 0 0;';
-          var ttsVoiceI=_inp('自定义 Voice ID','text',char.ttsVoiceId||'');
-          var ttsLangI=_inp('语言 (如 zh/en/ja, 留空自动)','text',char.ttsLanguage||'');
+          var ttsProvSel=TOPDOC.createElement('select');
+          ttsProvSel.style.cssText='padding:6px 10px;background:rgba(118,118,128,.18);border:none;border-radius:9px;color:'+C.text+';font-size:12px;outline:none;font-family:inherit;';
+          [['','跟随全局'],['minimax','MiniMax'],['fishaudio','Fish Audio']].forEach(function(o){
+            var op=TOPDOC.createElement('option');op.value=o[0];op.textContent=o[1];
+            if((char.ttsProvider||'')===o[0])op.selected=true;
+            ttsProvSel.appendChild(op);
+          });
+          ttsProvSel.addEventListener('mousedown',function(e){e.stopPropagation();});
+          var ttsVoiceI=_inp('MiniMax Voice ID','text',char.ttsVoiceId||'');
+          var ttsLangI=_inp('语言 (如 zh/en/ja, 留空自动，仅 MiniMax 用)','text',char.ttsLanguage||'');
+          var ttsFishVidI=_inp('Fish Audio Reference/Voice ID','text',char.fishVoiceId||'');
           var ttsSpeedRow=TOPDOC.createElement('div');ttsSpeedRow.style.cssText='display:flex;align-items:center;gap:6px;';
           var ttsSpeedLbl=TOPDOC.createElement('span');ttsSpeedLbl.style.cssText='font-size:12px;color:'+C.text2+';white-space:nowrap;';ttsSpeedLbl.textContent='语速';
           var ttsSpeedI=TOPDOC.createElement('input');ttsSpeedI.type='number';ttsSpeedI.step='0.1';ttsSpeedI.min='0.5';ttsSpeedI.max='2';
           ttsSpeedI.value=char.ttsSpeed!==undefined?char.ttsSpeed:1.0;
           ttsSpeedI.style.cssText='flex:1;padding:6px 10px;background:rgba(118,118,128,.18);border:none;border-radius:9px;color:'+C.text+';font-size:12px;outline:none;font-family:inherit;';
           ttsSpeedI.addEventListener('mousedown',function(e){e.stopPropagation();});
-          ttsFields.appendChild(_lbl('Voice ID'));ttsFields.appendChild(ttsVoiceI);
-          ttsFields.appendChild(_lbl('语言'));ttsFields.appendChild(ttsLangI);
+          ttsFields.appendChild(_lbl('语音来源'));ttsFields.appendChild(ttsProvSel);
+          ttsFields.appendChild(_lbl('Voice ID (MiniMax)'));ttsFields.appendChild(ttsVoiceI);
+          ttsFields.appendChild(_lbl('语言 (MiniMax)'));ttsFields.appendChild(ttsLangI);
+          ttsFields.appendChild(_lbl('Voice ID (Fish Audio)'));ttsFields.appendChild(ttsFishVidI);
           ttsSpeedRow.appendChild(ttsSpeedLbl);ttsSpeedRow.appendChild(ttsSpeedI);
           ttsFields.appendChild(ttsSpeedRow);
           var csB=_pbtn('保存','green');
           csB.addEventListener('click',function(e){
             e.stopPropagation();char.name=cnI.value.trim()||char.name;char.persona=cpT.value.trim();
+            char.ttsProvider=ttsProvSel.value;
             char.ttsVoiceId=ttsVoiceI.value.trim();char.ttsLanguage=ttsLangI.value.trim();
+            char.fishVoiceId=ttsFishVidI.value.trim();
             char.ttsSpeed=parseFloat(ttsSpeedI.value)||1.0;
             _ui.editCharId=null;_W();_renderTab();_renderCharTabs();_toast('角色已保存');
           });
           var csr=_row();csr.appendChild(csB);
           var charAvWrap=_makeAvatarWidget(function(){return char.avatar;},function(v){char.avatar=v;});
-          [charAvWrap,_lbl('名字'),cnI,_lbl('人设'),cpT,_lbl('MiniMax TTS'),ttsTogRow,ttsFields,csr].forEach(function(el){ep.appendChild(el);});
+          [charAvWrap,_lbl('名字'),cnI,_lbl('人设'),cpT,_lbl('语音合成 TTS'),ttsTogRow,ttsFields,csr].forEach(function(el){ep.appendChild(el);});
           card.appendChild(ep);
         }
         f.appendChild(card);
