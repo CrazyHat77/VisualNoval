@@ -928,9 +928,10 @@ function openViewer(mode){
     }
     /* Fish Audio 不支持浏览器直连(无 CORS)，走酒馆自带的 /proxy/ 转发(需在 config.yaml 开 enableCorsProxy) */
     var proxyUrl='/proxy/https://api.fish.audio/v1/tts';
-    TOP.fetch(proxyUrl,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apikey,'model':model},body:JSON.stringify(body)})
+    TOP.fetch(proxyUrl,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apikey,'model':model},body:JSON.stringify(body)})
       .then(function(r){
         if(r.status===404){ throw new Error('酒馆的 CORS 代理未开启，请在酒馆 config.yaml 里把 enableCorsProxy 改成 true 并重启酒馆'); }
+        if(r.status===401||r.status===403){ throw new Error('酒馆代理鉴权失败(401/403)，请刷新一下酒馆页面重新登录后再试'); }
         if(!r.ok){
           return r.text().then(function(t){
             var msg='Fish Audio HTTP '+r.status;
