@@ -781,6 +781,7 @@ function openViewer(mode){
 
   /* ─── VoiceTag 语音条 (Phase1: 注入模式 + 手动/自动播放 + 缓存) ─── */
   var _vtCache = (TOP.__vnmVtCache = TOP.__vnmVtCache || {order:[],map:{}});
+  var _vtInflight = (TOP.__vnmVtInflight = TOP.__vnmVtInflight || {});
   var _vtAudio=null,_vtBtn=null,_vtCur=null;
 
   function _vtGetSbS() {
@@ -872,11 +873,20 @@ function openViewer(mode){
     var spd = ch ? (parseFloat(ch.ttsSpeed)||1) : 1;
     var key = _vtKey(lang,text,provider+':'+vid);
     if(_vtCache.map[key]){ cb(null,_vtCache.map[key]); return; }
+    /* 请求还在飞的时候(比如提前加载还没回来，你就翻到了这句)，别重复发请求，
+       等同一个请求回来后大家一起收到结果——这样翻到那句时最多只用等"剩下的时间" */
+    if(_vtInflight[key]){ _vtInflight[key].push(cb); return; }
+    _vtInflight[key] = [cb];
+    function _vtDone(err,url){
+      var cbs = _vtInflight[key] || [];
+      delete _vtInflight[key];
+      cbs.forEach(function(f){ try{ f(err,url); }catch(e){} });
+    }
 
     if(provider==='fishaudio'){
-      _vtRequestFish(sbS, vid, spd, text, key, cb);
+      _vtRequestFish(sbS, vid, spd, text, key, _vtDone);
     } else {
-      _vtRequestMiniMax(sbS, ch, vid, spd, lang, text, key, cb);
+      _vtRequestMiniMax(sbS, ch, vid, spd, lang, text, key, _vtDone);
     }
   }
 
@@ -1038,29 +1048,42 @@ function openViewer(mode){
   function _vtPrefetchNext(currIdx) {
     var sbS = _vtGetSbS();
     if (!sbS.voiceTagEnabled || (sbS.voiceTagMode || 'manual') !== 'auto') return;
-    
-    var nextIdx = currIdx + 1;
-    if (nextIdx >= state.sentences.length) return;
-    
-    var nextSentence = state.sentences[nextIdx];
-    if (!nextSentence || !nextSentence.voice) return;
-    
-    var v = nextSentence.voice;
-    var ch = _vtCharByName(v.name);
-    var ttsEnabled = ch ? ch.ttsEnabled : false;
-    if (!ttsEnabled) return;
-    
-    var key = _vtVoiceKeyFor(ch, v.lang, v.text);
-    if (_vtCache.map[key]) return;
-    
-    console.log('[VNM v9.33] Auto prefetching voice for NEXT sentence (' + nextIdx + '): ' + v.name);
-    _vtRequest(v.name, v.lang, v.text, function(err, url) {
-      if (err) {
-        console.warn('[VNM v9.33] Prefetch err for ' + v.name + ':', err);
-      } else {
-        console.log('[VNM v9.33] Successfully prefetched next voice for ' + v.name);
-      }
-    });
+
+    var nMM = Math.max(0, parseInt(sbS.voiceTagPrefetchMiniMax, 10) || 1);
+    var nFish = Math.max(0, parseInt(sbS.voiceTagPrefetchFish, 10) || 3);
+    var maxN = Math.max(nMM, nFish);
+    if (maxN <= 0) return;
+
+    for (var k = 1; k <= maxN; k++) {
+      var idx = currIdx + k;
+      if (idx >= state.sentences.length) break;
+
+      var sentence = state.sentences[idx];
+      if (!sentence || !sentence.voice) continue;
+
+      var v = sentence.voice;
+      var ch = _vtCharByName(v.name);
+      var ttsEnabled = ch ? ch.ttsEnabled : false;
+      if (!ttsEnabled) continue;
+
+      var provider = _vtProvider(ch, sbS);
+      var nForThis = provider === 'fishaudio' ? nFish : nMM;
+      if (k > nForThis) continue; /* 这句用的语音源不想提前这么多句加载 */
+
+      var key = _vtVoiceKeyFor(ch, v.lang, v.text);
+      if (_vtCache.map[key]) continue;
+
+      (function(idxCopy, vCopy){
+        console.log('[VNM v9.33] Auto prefetching voice for sentence (' + idxCopy + ', +' + k + '): ' + vCopy.name + ' [' + provider + ']');
+        _vtRequest(vCopy.name, vCopy.lang, vCopy.text, function(err, url) {
+          if (err) {
+            console.warn('[VNM v9.33] Prefetch err for ' + vCopy.name + ':', err);
+          } else {
+            console.log('[VNM v9.33] Successfully prefetched voice for ' + vCopy.name + ' (sentence ' + idxCopy + ')');
+          }
+        });
+      })(idx, v);
+    }
   }
 
   function render(){
@@ -1459,6 +1482,8 @@ function openViewer(mode){
       voiceTagMode:  _d.voiceTagMode  ||'manual',
       voiceTagLang:  _d.voiceTagLang  ||'中文',
       voiceTagCacheN:_d.voiceTagCacheN||12,
+      voiceTagPrefetchMiniMax:_d.voiceTagPrefetchMiniMax||1,
+      voiceTagPrefetchFish:_d.voiceTagPrefetchFish||3,
       vnmApps:      _d.vnmApps       ||[],
       callHistory:  _d.callHistory   ||[],
       vcSystemPrompt:_d.vcSystemPrompt||null,
@@ -3357,6 +3382,16 @@ function openViewer(mode){
         var _lInp=TOPDOC.createElement('input');_lInp.className='v8fi';_lInp.type='text';_lInp.style.cssText='width:130px;';_lInp.placeholder='中文';_lInp.value=_sbS.voiceTagLang||'中文';
         _lInp.addEventListener('mousedown',function(e){e.stopPropagation();});
         _lInp.addEventListener('change',function(){_sbS.voiceTagLang=this.value.trim()||'中文';_W();});_lRow.appendChild(_lInp);c3.appendChild(_lRow);
+        var _pfMRow=_div('');_pfMRow.style.cssText='display:flex;align-items:center;justify-content:space-between;margin:8px 0;';
+        _pfMRow.appendChild(_div('','<span style="font-size:12px;color:rgba(255,255,255,.78);">提前几句加载(MiniMax)</span><div style="font-size:10px;color:rgba(255,255,255,.35);margin-top:1px;">自动模式下，翻到某句前提前N句开始请求语音并缓存好，翻到那句才播放</div>'));
+        var _pfMInp=TOPDOC.createElement('input');_pfMInp.className='v8fi';_pfMInp.type='number';_pfMInp.style.cssText='width:70px;flex-shrink:0;';_pfMInp.min='0';_pfMInp.value=_sbS.voiceTagPrefetchMiniMax||1;
+        _pfMInp.addEventListener('mousedown',function(e){e.stopPropagation();});
+        _pfMInp.addEventListener('change',function(){_sbS.voiceTagPrefetchMiniMax=Math.max(0,parseInt(this.value,10)||0);_W();});_pfMRow.appendChild(_pfMInp);c3.appendChild(_pfMRow);
+        var _pfFRow=_div('');_pfFRow.style.cssText='display:flex;align-items:center;justify-content:space-between;margin:8px 0;';
+        _pfFRow.appendChild(_div('','<span style="font-size:12px;color:rgba(255,255,255,.78);">提前几句加载(Fish Audio)</span><div style="font-size:10px;color:rgba(255,255,255,.35);margin-top:1px;">Fish Audio 走本地代理，延迟一般比 MiniMax 高，默认比 MiniMax 多提前2句</div>'));
+        var _pfFInp=TOPDOC.createElement('input');_pfFInp.className='v8fi';_pfFInp.type='number';_pfFInp.style.cssText='width:70px;flex-shrink:0;';_pfFInp.min='0';_pfFInp.value=_sbS.voiceTagPrefetchFish||3;
+        _pfFInp.addEventListener('mousedown',function(e){e.stopPropagation();});
+        _pfFInp.addEventListener('change',function(){_sbS.voiceTagPrefetchFish=Math.max(0,parseInt(this.value,10)||0);_W();});_pfFRow.appendChild(_pfFInp);c3.appendChild(_pfFRow);
         var _cRow=_div('');_cRow.style.cssText='display:flex;align-items:center;justify-content:space-between;margin:8px 0;';
         _cRow.appendChild(_div('','<span style="font-size:12px;color:rgba(255,255,255,.78);">缓存语音条数</span>'));
         var _cInp=TOPDOC.createElement('input');_cInp.className='v8fi';_cInp.type='number';_cInp.style.cssText='width:80px;';_cInp.min='1';_cInp.value=_sbS.voiceTagCacheN||12;
