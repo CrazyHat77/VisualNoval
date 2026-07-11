@@ -497,8 +497,9 @@
         var vtc = (sbS.characters || []).filter(function (c) { return c && c.ttsEnabled; }).map(function (c) { return c.name; }).filter(Boolean);
         if (vtc.length) {
           var vl = sbS.voiceTagLang || '中文';
-          var vp = sbS.voiceTagPrompt || '【语音系统·VoiceTag】当前开启语音的角色：{{角色名单}}。当这些角色在剧情里说出口的台词时，紧贴在该角色台词最前面、与台词同一行（不可换行分隔）输出：[VoiceTag:角色名:{{朗读语言}}:朗读文本]。规则：①朗读文本必须用{{朗读语言}}书写；②若{{朗读语言}}与台词双引号内语言相同，则朗读文本与台词内容完全一致；③若不同，则朗读文本是按{{朗读语言}}对该句台词的翻译；④{{朗读语言}}只决定朗读文本的语言，不改变台词双引号内本身的语言；⑤未在名单内的角色不要输出VoiceTag。例：[VoiceTag:白桃:{{朗读语言}}:今天天气真不错呀]“今天天气真不错呀” 或 [VoiceTag:白桃:英语:Hello]“你好”。';
-          parts.push(String(vp).replace(/\{\{角色名单\}\}/g, vtc.join('、')).replace(/\{\{朗读语言\}\}/g, vl));
+          var vp = sbS.voiceTagPrompt || '【语音系统·VoiceTag】当非{{user}}的角色在剧情里说话时，紧贴在该角色台词最前面、与台词同一行（不可换行分隔）输出：[VoiceTag:角色名:{{朗读语言}}:朗读文本]。规则：①朗读文本必须用{{朗读语言}}书写；②若朗读文本与台词双引号内语言相同，则朗读文本与台词内容必须完全一致；③若不同，则朗读文本是按{{朗读语言}}对双引号内台词的翻译；④朗读语音{{朗读语言}}只决定朗读文本的语言，不改变台词双引号内本身的语言；⑤{{user}}的语言（如果有）不要输出VoiceTag。输出例子：[VoiceTag:角色A名字:中文:你好]“你好” 、 [VoiceTag:角色B名字:英语:Hello]“你好”。';
+          var userName = (sbS.user && sbS.user.name) || 'user';
+          parts.push(String(vp).replace(/\{\{角色名单\}\}/g, vtc.join('、')).replace(/\{\{朗读语言\}\}/g, vl).replace(/\{\{user\}\}/g, userName));
         }
       }
     } catch (e) {}

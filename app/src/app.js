@@ -1347,10 +1347,12 @@ function openViewer(mode){
   // ═══════════════════════════════════════════════════════
   // Bridge: set by setupStatusBar, called by Enter handler
   var _sbInjectFn=function(){return'';};
-  function _defaultVoiceTagPrompt(){return'【语音系统·VoiceTag】当前开启语音的角色：{{角色名单}}。当这些角色在剧情里说出口的台词时，紧贴在该角色台词最前面、与台词同一行（不可换行分隔）输出：[VoiceTag:角色名:{{朗读语言}}:朗读文本]。规则：①朗读文本必须用{{朗读语言}}书写；②若{{朗读语言}}与台词双引号内语言相同，则朗读文本与台词内容完全一致；③若不同，则朗读文本是按{{朗读语言}}对该句台词的翻译；④{{朗读语言}}只决定朗读文本的语言，不改变台词双引号内本身的语言；⑤未在名单内的角色不要输出VoiceTag。例：[VoiceTag:白桃:{{朗读语言}}:今天天气真不错呀]“今天天气真不错呀” 或 [VoiceTag:白桃:英语:Hello]“你好”。';}
+  function _defaultVoiceTagPrompt(){return'【语音系统·VoiceTag】当非{{user}}的角色在剧情里说话时，紧贴在该角色台词最前面、与台词同一行（不可换行分隔）输出：[VoiceTag:角色名:{{朗读语言}}:朗读文本]。规则：①朗读文本必须用{{朗读语言}}书写；②若朗读文本与台词双引号内语言相同，则朗读文本与台词内容必须完全一致；③若不同，则朗读文本是按{{朗读语言}}对双引号内台词的翻译；④朗读语音{{朗读语言}}只决定朗读文本的语言，不改变台词双引号内本身的语言；⑤{{user}}的语言（如果有）不要输出VoiceTag。输出例子：[VoiceTag:角色A名字:中文:你好]“你好” 、 [VoiceTag:角色B名字:英语:Hello]“你好”。';}
+  function _legacyVoiceTagPrompt(){return'【语音系统·VoiceTag】当前开启语音的角色：{{角色名单}}。当这些角色在剧情里说出口的台词时，紧贴在该角色台词最前面、与台词同一行（不可换行分隔）输出：[VoiceTag:角色名:{{朗读语言}}:朗读文本]。规则：①朗读文本必须用{{朗读语言}}书写；②若{{朗读语言}}与台词双引号内语言相同，则朗读文本与台词内容完全一致；③若不同，则朗读文本是按{{朗读语言}}对该句台词的翻译；④{{朗读语言}}只决定朗读文本的语言，不改变台词双引号内本身的语言；⑤未在名单内的角色不要输出VoiceTag。例：[VoiceTag:白桃:{{朗读语言}}:今天天气真不错呀]“今天天气真不错呀” 或 [VoiceTag:白桃:英语:Hello]“你好”。';}
   function _renderVoiceTagPrompt(chars,lang){
+    var userName=(_sbS&&_sbS.user&&_sbS.user.name)||'user';
     return String((_sbS&&_sbS.voiceTagPrompt)||_defaultVoiceTagPrompt())
-      .replace(/\{\{角色名单\}\}/g,chars.join('、')).replace(/\{\{朗读语言\}\}/g,lang);
+      .replace(/\{\{角色名单\}\}/g,chars.join('、')).replace(/\{\{朗读语言\}\}/g,lang).replace(/\{\{user\}\}/g,userName);
   }
   // 统一注入: 角色注入 + 各启用app的injectCode注入(按顺序), 二者合并不互相覆盖
   function _buildInject(){
@@ -1491,12 +1493,18 @@ function openViewer(mode){
       voiceTagPrefetchFish:_d.voiceTagPrefetchFish||3,
       voiceTagPrompt:_d.voiceTagPrompt||null,
       voiceTagPromptPresets:_d.voiceTagPromptPresets||[],
+      voiceTagPromptDefaultsV1:_d.voiceTagPromptDefaultsV1||false,
       vnmApps:      _d.vnmApps       ||[],
       callHistory:  _d.callHistory   ||[],
       vcSystemPrompt:_d.vcSystemPrompt||null,
       vcContextDepth:(_d.vcContextDepth!==undefined)?_d.vcContextDepth:6,
       glassUI:      _d.glassUI       ||{}
     };
+    if(!_sbS.voiceTagPromptDefaultsV1){
+      if(_sbS.voiceTagPrompt===_legacyVoiceTagPrompt())_sbS.voiceTagPrompt=null;
+      _sbS.voiceTagPromptPresets.push({name:'默认2',content:_legacyVoiceTagPrompt()});
+      _sbS.voiceTagPromptDefaultsV1=true;
+    }
     var _ui={settingsOpen:false,tab:'api',loading:false,charIdx:0,histIdx:{},editPresetId:null,editCharId:null,wbCollapsed:{}};
     function _uuid(){return Date.now().toString(36)+Math.random().toString(36).substr(2);}
     function _esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -3409,13 +3417,13 @@ function openViewer(mode){
         body.appendChild(c3);
         body.appendChild(_div('v8sec','注入酒馆提示词'));
         var _vpCard=_div('v8card');var _vpRow=_div('v8row');_vpRow.style.cssText='display:block;padding:12px 14px;cursor:default;';
-        _vpRow.appendChild(_div('','<div style="font-size:11px;color:rgba(255,255,255,.45);margin-bottom:8px;line-height:1.5;">发送消息时包进 &lt;VNInject&gt;。可用变量：{{角色名单}}、{{朗读语言}}</div>'));
+        _vpRow.appendChild(_div('','<div style="font-size:11px;color:rgba(255,255,255,.45);margin-bottom:8px;line-height:1.5;">发送消息时包进 &lt;VNInject&gt;。可用变量：{{user}}、{{角色名单}}、{{朗读语言}}。当前默认使用“默认1”。</div>'));
         var _vpTa=TOPDOC.createElement('textarea');_vpTa.className='v8ta';_vpTa.style.height='170px';_vpTa.value=_sbS.voiceTagPrompt||_defaultVoiceTagPrompt();
         _vpTa.addEventListener('mousedown',function(e){e.stopPropagation();});_vpTa.addEventListener('input',function(){_sbS.voiceTagPrompt=this.value;_W();});_vpRow.appendChild(_vpTa);
         var _vpBar=_div('');_vpBar.style.cssText='display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px;';
         function _vpBtn(label,fn){var b=TOPDOC.createElement('button');b.type='button';b.textContent=label;b.style.cssText='padding:5px 10px;font-size:11px;background:rgba(255,255,255,.09);color:rgba(255,255,255,.72);border:.5px solid rgba(255,255,255,.18);border-radius:10px;cursor:pointer;font-family:inherit;';b.addEventListener('click',function(e){e.stopPropagation();fn();});return b;}
         _vpBar.appendChild(_vpBtn('保存预设',function(){var n=TOP.prompt('预设名称：');if(!n||!n.trim())return;_sbS.voiceTagPromptPresets.push({name:n.trim(),content:_vpTa.value});_W();_renderVpPresets();}));
-        _vpBar.appendChild(_vpBtn('恢复默认',function(){_vpTa.value=_defaultVoiceTagPrompt();_sbS.voiceTagPrompt=_vpTa.value;_W();}));
+        _vpBar.appendChild(_vpBtn('恢复默认1',function(){_vpTa.value=_defaultVoiceTagPrompt();_sbS.voiceTagPrompt=_vpTa.value;_W();}));
         function _renderVpPresets(){while(_vpBar.children.length>2)_vpBar.removeChild(_vpBar.lastChild);(_sbS.voiceTagPromptPresets||[]).forEach(function(p,i){var pill=_div('');pill.style.cssText='display:inline-flex;align-items:center;gap:5px;padding:4px 8px;font-size:11px;background:rgba(255,255,255,.08);border:.5px solid rgba(255,255,255,.15);border-radius:20px;color:rgba(255,255,255,.7);';var use=TOPDOC.createElement('span');use.textContent=p.name;use.style.cursor='pointer';use.title='应用预设';use.onclick=function(e){e.stopPropagation();_vpTa.value=p.content;_sbS.voiceTagPrompt=p.content;_W();};var del=TOPDOC.createElement('span');del.textContent='×';del.style.cssText='cursor:pointer;color:rgba(255,255,255,.4);font-size:14px;';del.title='删除预设';del.onclick=function(e){e.stopPropagation();_sbS.voiceTagPromptPresets.splice(i,1);_W();_renderVpPresets();};pill.appendChild(use);pill.appendChild(del);_vpBar.appendChild(pill);});}
         _renderVpPresets();_vpRow.appendChild(_vpBar);_vpCard.appendChild(_vpRow);body.appendChild(_vpCard);
         pg.appendChild(body);scr.appendChild(pg);
