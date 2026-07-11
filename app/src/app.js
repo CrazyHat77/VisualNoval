@@ -1347,6 +1347,11 @@ function openViewer(mode){
   // ═══════════════════════════════════════════════════════
   // Bridge: set by setupStatusBar, called by Enter handler
   var _sbInjectFn=function(){return'';};
+  function _defaultVoiceTagPrompt(){return'【语音系统·VoiceTag】当前开启语音的角色：{{角色名单}}。当这些角色在剧情里说出口的台词时，紧贴在该角色台词最前面、与台词同一行（不可换行分隔）输出：[VoiceTag:角色名:{{朗读语言}}:朗读文本]。规则：①朗读文本必须用{{朗读语言}}书写；②若{{朗读语言}}与台词双引号内语言相同，则朗读文本与台词内容完全一致；③若不同，则朗读文本是按{{朗读语言}}对该句台词的翻译；④{{朗读语言}}只决定朗读文本的语言，不改变台词双引号内本身的语言；⑤未在名单内的角色不要输出VoiceTag。例：[VoiceTag:白桃:{{朗读语言}}:今天天气真不错呀]“今天天气真不错呀” 或 [VoiceTag:白桃:英语:Hello]“你好”。';}
+  function _renderVoiceTagPrompt(chars,lang){
+    return String((_sbS&&_sbS.voiceTagPrompt)||_defaultVoiceTagPrompt())
+      .replace(/\{\{角色名单\}\}/g,chars.join('、')).replace(/\{\{朗读语言\}\}/g,lang);
+  }
   // 统一注入: 角色注入 + 各启用app的injectCode注入(按顺序), 二者合并不互相覆盖
   function _buildInject(){
     var parts=[];
@@ -1364,7 +1369,7 @@ function openViewer(mode){
         var _vtChars=((_sbS.characters)||[]).filter(function(c){return c.ttsEnabled;}).map(function(c){return c.name;}).filter(Boolean);
         if(_vtChars.length){
           var _vtLang=_sbS.voiceTagLang||'中文';
-          parts.push('【语音系统·VoiceTag】当前开启语音的角色：'+_vtChars.join('、')+'。当这些角色在剧情里说出口的台词时，紧贴在该角色台词最前面、与台词同一行（不可换行分隔）输出：[VoiceTag:角色名:'+_vtLang+':朗读文本]。规则：①朗读文本必须用'+_vtLang+'书写；②若'+_vtLang+'与台词双引号内语言相同，则朗读文本与台词内容完全一致；③若不同，则朗读文本是按'+_vtLang+'对该句台词的翻译；④'+_vtLang+'只决定朗读文本的语言，不改变台词双引号内本身的语言；⑤未在名单内的角色不要输出VoiceTag。例：[VoiceTag:白桃:'+_vtLang+':今天天气真不错呀]“今天天气真不错呀” 或 [VoiceTag:白桃:英语:Hello]“你好”。');
+          parts.push(_renderVoiceTagPrompt(_vtChars,_vtLang));
         }
       }
     }catch(e){}
@@ -1484,6 +1489,8 @@ function openViewer(mode){
       voiceTagCacheN:_d.voiceTagCacheN||12,
       voiceTagPrefetchMiniMax:_d.voiceTagPrefetchMiniMax||1,
       voiceTagPrefetchFish:_d.voiceTagPrefetchFish||3,
+      voiceTagPrompt:_d.voiceTagPrompt||null,
+      voiceTagPromptPresets:_d.voiceTagPromptPresets||[],
       vnmApps:      _d.vnmApps       ||[],
       callHistory:  _d.callHistory   ||[],
       vcSystemPrompt:_d.vcSystemPrompt||null,
@@ -3366,38 +3373,51 @@ function openViewer(mode){
         _refreshSrcUI();
 
         /* ── VN 语音条 (VoiceTag) ── */
-        var c3=_div('');c3.style.cssText='background:rgba(255,255,255,.05);border:.5px solid rgba(255,255,255,.12);border-radius:16px;padding:14px;margin-top:14px;';
-        c3.appendChild(_div('','<div style="font-size:13px;font-weight:600;color:rgba(255,255,255,.9);margin-bottom:4px;">VN 语音条 (VoiceTag)</div><div style="font-size:11px;color:rgba(255,255,255,.45);margin-bottom:10px;line-height:1.5;">翻到开启TTS的角色台词时朗读，用哪一家语音由角色/默认设置决定。需在通讯录给角色开启 TTS。</div>'));
-        var _vRow=_div('');_vRow.style.cssText='display:flex;align-items:center;justify-content:space-between;margin:8px 0;';
+        body.appendChild(_div('v8sec','VN 语音条 (VoiceTag)'));
+        var c3=_div('v8card');
+        var _vHead=_div('v8row');_vHead.style.cssText='display:block;padding:12px 14px;cursor:default;';
+        _vHead.appendChild(_div('','<div style="font-size:13px;font-weight:600;color:rgba(255,255,255,.9);margin-bottom:4px;">VN 语音条 (VoiceTag)</div><div style="font-size:11px;color:rgba(255,255,255,.45);line-height:1.5;">翻到开启TTS的角色台词时朗读，用哪一家语音由角色/默认设置决定。需在通讯录给角色开启 TTS。</div>'));c3.appendChild(_vHead);
+        var _vRow=_div('v8row');_vRow.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:10px 14px;';
         _vRow.appendChild(_div('','<span style="font-size:12px;color:rgba(255,255,255,.78);">启用语音条</span>'));
         _vRow.appendChild(_tog(_sbS.voiceTagEnabled,function(v){_sbS.voiceTagEnabled=v;_W();}));c3.appendChild(_vRow);
-        var _mRow=_div('');_mRow.style.cssText='display:flex;align-items:center;justify-content:space-between;margin:8px 0;';
+        var _mRow=_div('v8row');_mRow.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:10px 14px;';
         _mRow.appendChild(_div('','<span style="font-size:12px;color:rgba(255,255,255,.78);">播放模式</span>'));
         var _mSel=TOPDOC.createElement('select');_mSel.className='v8fi';_mSel.style.cssText='width:130px;';
         [['manual','手动(显示按钮)'],['auto','自动(到句即播)']].forEach(function(o){var op=TOPDOC.createElement('option');op.value=o[0];op.textContent=o[1];if((_sbS.voiceTagMode||'manual')===o[0])op.selected=true;_mSel.appendChild(op);});
         _mSel.addEventListener('mousedown',function(e){e.stopPropagation();});
         _mSel.addEventListener('change',function(){_sbS.voiceTagMode=this.value;_W();});_mRow.appendChild(_mSel);c3.appendChild(_mRow);
-        var _lRow=_div('');_lRow.style.cssText='display:flex;align-items:center;justify-content:space-between;margin:8px 0;';
+        var _lRow=_div('v8row');_lRow.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:10px 14px;';
         _lRow.appendChild(_div('','<span style="font-size:12px;color:rgba(255,255,255,.78);">发送文本语言</span>'));
         var _lInp=TOPDOC.createElement('input');_lInp.className='v8fi';_lInp.type='text';_lInp.style.cssText='width:130px;';_lInp.placeholder='中文';_lInp.value=_sbS.voiceTagLang||'中文';
         _lInp.addEventListener('mousedown',function(e){e.stopPropagation();});
         _lInp.addEventListener('change',function(){_sbS.voiceTagLang=this.value.trim()||'中文';_W();});_lRow.appendChild(_lInp);c3.appendChild(_lRow);
-        var _pfMRow=_div('');_pfMRow.style.cssText='display:flex;align-items:center;justify-content:space-between;margin:8px 0;';
+        var _pfMRow=_div('v8row');_pfMRow.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:10px 14px;';
         _pfMRow.appendChild(_div('','<span style="font-size:12px;color:rgba(255,255,255,.78);">提前几句加载(MiniMax)</span><div style="font-size:10px;color:rgba(255,255,255,.35);margin-top:1px;">自动模式下，翻到某句前提前N句开始请求语音并缓存好，翻到那句才播放</div>'));
         var _pfMInp=TOPDOC.createElement('input');_pfMInp.className='v8fi';_pfMInp.type='number';_pfMInp.style.cssText='width:70px;flex-shrink:0;';_pfMInp.min='0';_pfMInp.value=_sbS.voiceTagPrefetchMiniMax||1;
         _pfMInp.addEventListener('mousedown',function(e){e.stopPropagation();});
         _pfMInp.addEventListener('change',function(){_sbS.voiceTagPrefetchMiniMax=Math.max(0,parseInt(this.value,10)||0);_W();});_pfMRow.appendChild(_pfMInp);c3.appendChild(_pfMRow);
-        var _pfFRow=_div('');_pfFRow.style.cssText='display:flex;align-items:center;justify-content:space-between;margin:8px 0;';
+        var _pfFRow=_div('v8row');_pfFRow.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:10px 14px;';
         _pfFRow.appendChild(_div('','<span style="font-size:12px;color:rgba(255,255,255,.78);">提前几句加载(Fish Audio)</span><div style="font-size:10px;color:rgba(255,255,255,.35);margin-top:1px;">Fish Audio 走本地代理，延迟一般比 MiniMax 高，默认比 MiniMax 多提前2句</div>'));
         var _pfFInp=TOPDOC.createElement('input');_pfFInp.className='v8fi';_pfFInp.type='number';_pfFInp.style.cssText='width:70px;flex-shrink:0;';_pfFInp.min='0';_pfFInp.value=_sbS.voiceTagPrefetchFish||3;
         _pfFInp.addEventListener('mousedown',function(e){e.stopPropagation();});
         _pfFInp.addEventListener('change',function(){_sbS.voiceTagPrefetchFish=Math.max(0,parseInt(this.value,10)||0);_W();});_pfFRow.appendChild(_pfFInp);c3.appendChild(_pfFRow);
-        var _cRow=_div('');_cRow.style.cssText='display:flex;align-items:center;justify-content:space-between;margin:8px 0;';
+        var _cRow=_div('v8row');_cRow.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:10px 14px;';
         _cRow.appendChild(_div('','<span style="font-size:12px;color:rgba(255,255,255,.78);">缓存语音条数</span>'));
         var _cInp=TOPDOC.createElement('input');_cInp.className='v8fi';_cInp.type='number';_cInp.style.cssText='width:80px;';_cInp.min='1';_cInp.value=_sbS.voiceTagCacheN||12;
         _cInp.addEventListener('mousedown',function(e){e.stopPropagation();});
         _cInp.addEventListener('change',function(){_sbS.voiceTagCacheN=Math.max(1,parseInt(this.value,10)||12);_W();});_cRow.appendChild(_cInp);c3.appendChild(_cRow);
         body.appendChild(c3);
+        body.appendChild(_div('v8sec','注入酒馆提示词'));
+        var _vpCard=_div('v8card');var _vpRow=_div('v8row');_vpRow.style.cssText='display:block;padding:12px 14px;cursor:default;';
+        _vpRow.appendChild(_div('','<div style="font-size:11px;color:rgba(255,255,255,.45);margin-bottom:8px;line-height:1.5;">发送消息时包进 &lt;VNInject&gt;。可用变量：{{角色名单}}、{{朗读语言}}</div>'));
+        var _vpTa=TOPDOC.createElement('textarea');_vpTa.className='v8ta';_vpTa.style.height='170px';_vpTa.value=_sbS.voiceTagPrompt||_defaultVoiceTagPrompt();
+        _vpTa.addEventListener('mousedown',function(e){e.stopPropagation();});_vpTa.addEventListener('input',function(){_sbS.voiceTagPrompt=this.value;_W();});_vpRow.appendChild(_vpTa);
+        var _vpBar=_div('');_vpBar.style.cssText='display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px;';
+        function _vpBtn(label,fn){var b=TOPDOC.createElement('button');b.type='button';b.textContent=label;b.style.cssText='padding:5px 10px;font-size:11px;background:rgba(255,255,255,.09);color:rgba(255,255,255,.72);border:.5px solid rgba(255,255,255,.18);border-radius:10px;cursor:pointer;font-family:inherit;';b.addEventListener('click',function(e){e.stopPropagation();fn();});return b;}
+        _vpBar.appendChild(_vpBtn('保存预设',function(){var n=TOP.prompt('预设名称：');if(!n||!n.trim())return;_sbS.voiceTagPromptPresets.push({name:n.trim(),content:_vpTa.value});_W();_renderVpPresets();}));
+        _vpBar.appendChild(_vpBtn('恢复默认',function(){_vpTa.value=_defaultVoiceTagPrompt();_sbS.voiceTagPrompt=_vpTa.value;_W();}));
+        function _renderVpPresets(){while(_vpBar.children.length>2)_vpBar.removeChild(_vpBar.lastChild);(_sbS.voiceTagPromptPresets||[]).forEach(function(p,i){var pill=_div('');pill.style.cssText='display:inline-flex;align-items:center;gap:5px;padding:4px 8px;font-size:11px;background:rgba(255,255,255,.08);border:.5px solid rgba(255,255,255,.15);border-radius:20px;color:rgba(255,255,255,.7);';var use=TOPDOC.createElement('span');use.textContent=p.name;use.style.cursor='pointer';use.title='应用预设';use.onclick=function(e){e.stopPropagation();_vpTa.value=p.content;_sbS.voiceTagPrompt=p.content;_W();};var del=TOPDOC.createElement('span');del.textContent='×';del.style.cssText='cursor:pointer;color:rgba(255,255,255,.4);font-size:14px;';del.title='删除预设';del.onclick=function(e){e.stopPropagation();_sbS.voiceTagPromptPresets.splice(i,1);_W();_renderVpPresets();};pill.appendChild(use);pill.appendChild(del);_vpBar.appendChild(pill);});}
+        _renderVpPresets();_vpRow.appendChild(_vpBar);_vpCard.appendChild(_vpRow);body.appendChild(_vpCard);
         pg.appendChild(body);scr.appendChild(pg);
       }
 
@@ -4854,4 +4874,3 @@ window.addEventListener('storage', function(e){
     if(typeof window._vnmClose === 'function') window._vnmClose();
   }
 });
-
