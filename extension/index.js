@@ -558,7 +558,6 @@
    if (!fx.length) return;
    var KEY = 'vnm-weather';
    var raw = localStorage.getItem(KEY);
-   var isNew = !raw;
    var st = {};
    try { st = JSON.parse(raw || '{}') || {}; } catch (e) { st = {}; }
    if (!Array.isArray(st.effects)) st.effects = [];
@@ -577,17 +576,19 @@
           ex.description = p.description || '';
           ex.name = p.name;
           ex.paramDefs = p.params || [];
+          ex.params = ex.params || {};
+          (p.params || []).forEach(function (pd) {
+            if (ex.params[pd.key] == null) ex.params[pd.key] = pd.default;
+          });
           changed = true;
         }
         return;
       }
-      // 全新本地存储，或者 st.effects 数组完全为空，才自动安装
-      if (isNew || st.effects.length === 0) {
-        var params = {}; (p.params || []).forEach(function (pd) { params[pd.key] = pd.default; });
-        st.effects.push({ id: id, name: p.name || '特效', description: p.description || '', code: p.code,
-          enabled: false, fixed: false, params: params, paramDefs: p.params || [] });
-        changed = true;
-      }
+      // 升级时也要补齐新内置特效；仅使用稳定 builtin id，避免覆盖用户导入项。
+      var params = {}; (p.params || []).forEach(function (pd) { params[pd.key] = pd.default; });
+      st.effects.push({ id: id, name: p.name || '特效', description: p.description || '', code: p.code,
+        enabled: false, fixed: false, params: params, paramDefs: p.params || [] });
+      changed = true;
     });
     if (changed) { try { localStorage.setItem(KEY, JSON.stringify(st)); console.info(LOG, '已同步天气特效'); } catch (e) {} }
  }
