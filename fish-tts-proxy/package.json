@@ -1,6 +1,6 @@
 {
   "name": "vnm-fish-tts-proxy",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Local proxy so the Visual Novel by白桃 SillyTavern extension can call Fish Audio TTS without hitting browser CORS restrictions. Works standalone or as a SillyTavern server plugin.",
   "main": "index.js",
   "license": "MIT"

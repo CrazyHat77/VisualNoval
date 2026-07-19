@@ -23,7 +23,8 @@ async function init(router) {
   const port = process.env.VNM_FISH_PROXY_PORT
     ? parseInt(process.env.VNM_FISH_PROXY_PORT, 10)
     : 8765;
-  server = startServer(port);
+  const host = process.env.VNM_FISH_PROXY_HOST || '0.0.0.0';
+  server = startServer(port, host);
 }
 
 async function exit() {

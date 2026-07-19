@@ -938,7 +938,13 @@ function openViewer(mode){
     }
     /* Fish Audio 不支持浏览器直连(无 CORS)，走独立本地代理小工具(fish-tts-proxy)转发 */
     var proxyPort=sbS.fishProxyPort||'8765';
-    var proxyUrl='http://127.0.0.1:'+proxyPort+'/tts';
+    var proxyHost=(sbS.fishProxyHost||'').trim();
+    if(!proxyHost){
+      try{ proxyHost=TOP.location.hostname||'127.0.0.1'; }catch(e){ proxyHost='127.0.0.1'; }
+    }
+    /* URL 中的 IPv6 主机名需要方括号；普通域名和 IPv4 保持不变。 */
+    var proxyUrlHost=(proxyHost.indexOf(':')>=0&&proxyHost.charAt(0)!=='[')?('['+proxyHost+']'):proxyHost;
+    var proxyUrl='http://'+proxyUrlHost+':'+proxyPort+'/tts';
     TOP.fetch(proxyUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({apiKey:apikey,model:model,payload:body})})
       .then(function(r){
         if(!r.ok){
@@ -959,7 +965,7 @@ function openViewer(mode){
       .catch(function(e){
         var msg=e&&e.message||String(e);
         if(/Failed to fetch|NetworkError|Load failed/i.test(msg)){
-          msg='未连接到本地 Fish Audio 代理(127.0.0.1:'+proxyPort+')，请先双击运行 fish-tts-proxy 里的 启动.bat';
+          msg='未连接到 Fish Audio 代理('+proxyHost+':'+proxyPort+')。请确认 fish-tts-proxy 已随酒馆启动，并允许 Node.js 通过 Windows 专用网络防火墙';
         }
         cb(msg);
       });
@@ -1484,6 +1490,7 @@ function openViewer(mode){
       fishLatency:   _d.fishLatency   ||'balanced',
       fishTemperature:(_d.fishTemperature!==undefined&&_d.fishTemperature!==null)?_d.fishTemperature:'',
       fishTopP:      (_d.fishTopP!==undefined&&_d.fishTopP!==null)?_d.fishTopP:'',
+      fishProxyHost: _d.fishProxyHost ||'',
       fishProxyPort: _d.fishProxyPort ||'8765',
       voiceTagEnabled: (_d.voiceTagEnabled!==undefined)?_d.voiceTagEnabled:false,
       voiceTagMode:  _d.voiceTagMode  ||'manual',
@@ -3319,7 +3326,7 @@ function openViewer(mode){
         /* ── Fish Audio 配置区（provider=fishaudio 时展开） ── */
         var _fishSec=_div('');
         _fishSec.appendChild(_div('v8sec','Fish Audio 配置'));
-        var _fHint=_div('');_fHint.style.cssText='font-size:11px;color:rgba(255,255,255,.4);line-height:1.5;padding:0 4px 8px;';_fHint.textContent='Fish Audio 服务器不支持浏览器直连，需要先运行随插件附带的 fish-tts-proxy 本地小工具（双击里面的 启动.bat）才能用。端口默认 8765，改了要在下面同步改。';_fishSec.appendChild(_fHint);
+        var _fHint=_div('');_fHint.style.cssText='font-size:11px;color:rgba(255,255,255,.4);line-height:1.5;padding:0 4px 8px;';_fHint.textContent='Fish Audio 服务器不支持浏览器直连，需要运行随插件附带的 fish-tts-proxy。电脑和同一局域网内的手机都可使用；主机留空时会自动使用当前酒馆页面的电脑地址。';_fishSec.appendChild(_fHint);
         var cF=_div('v8card');
         /* API Key */
         var _fKRow=_div('v8row');_fKRow.style.cssText='flex-direction:column;align-items:stretch;padding:12px 14px;gap:6px;';
@@ -3328,6 +3335,14 @@ function openViewer(mode){
         _fKInp.addEventListener('mousedown',function(e){e.stopPropagation();});
         _fKInp.addEventListener('change',function(){_sbS.fishApiKey=this.value.trim();_W();});
         _fKRow.appendChild(_fKLbl);_fKRow.appendChild(_fKInp);cF.appendChild(_fKRow);
+        cF.appendChild((function(){var s=_div('');s.style.cssText='height:.5px;background:rgba(255,255,255,.06);margin:0 14px;';return s;})());
+        /* 代理主机（留空时跟随酒馆页面主机，手机会自动使用电脑局域网 IP） */
+        var _fHRow=_div('v8row');_fHRow.style.cssText='padding:12px 14px;align-items:center;gap:8px;';
+        _fHRow.appendChild(_div('v8rb','<div class="v8rt">代理主机 / IP</div><div class="v8rs">留空自动跟随酒馆地址；特殊网络可手动填写电脑 IP</div>'));
+        var _fHInp=TOPDOC.createElement('input');_fHInp.className='v8fi';_fHInp.type='text';_fHInp.placeholder='自动';_fHInp.style.cssText='max-width:150px;font-size:13px;flex-shrink:0;text-align:center;';_fHInp.value=_sbS.fishProxyHost||'';
+        _fHInp.addEventListener('mousedown',function(e){e.stopPropagation();});
+        _fHInp.addEventListener('change',function(){_sbS.fishProxyHost=this.value.trim();_W();});
+        _fHRow.appendChild(_fHInp);cF.appendChild(_fHRow);
         cF.appendChild((function(){var s=_div('');s.style.cssText='height:.5px;background:rgba(255,255,255,.06);margin:0 14px;';return s;})());
         /* 本地代理端口 */
         var _fPRow=_div('v8row');_fPRow.style.cssText='padding:12px 14px;align-items:center;gap:8px;';

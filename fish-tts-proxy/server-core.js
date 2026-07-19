@@ -100,7 +100,8 @@ function requestHandler(req, res) {
  * 端口被占用（比如手动开了一份，插件又想再开一份）时不会报错崩掉整个进程，
  * 只是打一行日志说明已经有一个在跑了。
  */
-function startServer(port) {
+function startServer(port, host) {
+  host = host || '0.0.0.0';
   const server = http.createServer(requestHandler);
   server.on('error', (e) => {
     if (e && e.code === 'EADDRINUSE') {
@@ -109,8 +110,13 @@ function startServer(port) {
       console.error('[vnm-fish-tts-proxy] 启动失败:', e);
     }
   });
-  server.listen(port, '127.0.0.1', () => {
-    console.log('[vnm-fish-tts-proxy] 已启动，监听 http://127.0.0.1:' + port);
+  server.listen(port, host, () => {
+    const address = server.address();
+    const listenPort = address && address.port ? address.port : port;
+    console.log('[vnm-fish-tts-proxy] 已启动，监听 ' + host + ':' + listenPort);
+    if (host === '0.0.0.0' || host === '::') {
+      console.log('[vnm-fish-tts-proxy] 局域网设备请使用 http://<这台电脑的局域网IP>:' + listenPort);
+    }
   });
   return server;
 }
