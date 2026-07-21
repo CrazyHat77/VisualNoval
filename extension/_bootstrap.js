@@ -217,6 +217,7 @@
     if (!sb) return;
     var target = fsAnchor();   // 浏览器全屏时挂进全屏元素, 否则挂 body, 保证全屏下也可见
     if (sb.parentNode !== target) { try { target.appendChild(sb); } catch (e) {} }
+    try { if (typeof window.__vnmApplyGlass === 'function') window.__vnmApplyGlass(); } catch (e) {}
   }
 
   // 创建/获取常驻功能系统运行时(隐藏的 host iframe 以 pc 模式跑出功能系统, 再把面板移到 body 常驻)
@@ -275,6 +276,7 @@
       if (!sb) { toast('功能系统正在初始化，请稍候再点'); return; }
       keepSbAnchored();
       var vis = sb.style.display !== 'none';
+      if (!vis) { try { if (typeof window.__vnmApplyGlass === 'function') window.__vnmApplyGlass(); } catch (e) {} }
       sb.style.display = vis ? 'none' : 'flex';   // FAB = 显示/隐藏 同一个常驻功能系统
       try { var d = JSON.parse(localStorage.getItem('vnm-statusbar-v2') || '{}'); d.visible = !vis; localStorage.setItem('vnm-statusbar-v2', JSON.stringify(d)); } catch (e) {}
     });

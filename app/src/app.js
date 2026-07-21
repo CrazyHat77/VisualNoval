@@ -1391,6 +1391,8 @@ function openViewer(mode){
     var _existing=TOPDOC.getElementById('vnm-statusbar');
     if(_existing&&_existing.getAttribute('data-lgv')!=='2'){try{_existing.parentNode.removeChild(_existing);}catch(e){}_existing=null;}
     if(_existing){
+      /* Re-opening the persistent singleton must replay the stored glass skin. */
+      try{if(typeof TOP.__vnmApplyGlass==='function')TOP.__vnmApplyGlass();}catch(e){}
       /* Panel already exists — just re-sync toggle button */
       (function(){
         var t=overlay.querySelector('#vnm-btn-sb-toggle');
@@ -1405,6 +1407,7 @@ function openViewer(mode){
           t.addEventListener('click',function(e){
             e.stopPropagation();
             var show=_existing.style.display==='none';
+            if(show){try{if(typeof TOP.__vnmApplyGlass==='function')TOP.__vnmApplyGlass();}catch(ex0){}}
             _existing.style.display=show?'flex':'none';
             var SB_KEY2='vnm-statusbar-v2';
             try{var d2=JSON.parse(TOP.localStorage.getItem(SB_KEY2)||'{}');d2.visible=show;TOP.localStorage.setItem(SB_KEY2,JSON.stringify(d2));}catch(ex){}
@@ -1507,6 +1510,14 @@ function openViewer(mode){
       vcContextDepth:(_d.vcContextDepth!==undefined)?_d.vcContextDepth:6,
       glassUI:      _d.glassUI       ||{}
     };
+    function _rehydrateGlass(){
+      try{
+        var fresh=_L();
+        if(fresh&&fresh.glassUI&&typeof fresh.glassUI==='object')_sbS.glassUI=fresh.glassUI;
+      }catch(e){}
+      _applyGlass();
+    }
+    TOP.__vnmApplyGlass=_rehydrateGlass;
     if(!_sbS.voiceTagPromptDefaultsV1){
       if(_sbS.voiceTagPrompt===_legacyVoiceTagPrompt())_sbS.voiceTagPrompt=null;
       _sbS.voiceTagPromptPresets.push({name:'默认2',content:_legacyVoiceTagPrompt()});
@@ -2870,7 +2881,7 @@ function openViewer(mode){
           top.appendChild(val);f.appendChild(top);
           var r=TOPDOC.createElement('input');r.type='range';r.min=min;r.max=max;r.step=step;r.value=cur;
           r.style.cssText='width:100%;height:22px;cursor:pointer;accent-color:rgba(255,255,255,.9);background:transparent;border:none;display:block;';
-          r.addEventListener('input',function(){_sbS.glassUI=_sbS.glassUI||{};_sbS.glassUI[key]=parseFloat(r.value);val.textContent=r.value+unit;_applyGlass();});
+          r.addEventListener('input',function(){_sbS.glassUI=_sbS.glassUI||{};_sbS.glassUI[key]=parseFloat(r.value);val.textContent=r.value+unit;_W();_applyGlass();});
           r.addEventListener('change',function(){_W();});
           f.appendChild(r);card.appendChild(f);
         }
@@ -4802,12 +4813,12 @@ function openViewer(mode){
         t.style.background=_sbS.visible?'rgba(255,255,255,.12)':'transparent';
         t.style.borderColor=_sbS.visible?'rgba(255,255,255,.18)':'transparent';
       }
-      t.addEventListener('click',function(e){e.stopPropagation();_sbS.visible=!_sbS.visible;_sb.style.display=_sbS.visible?'flex':'none';_sync();_W();});
+      t.addEventListener('click',function(e){e.stopPropagation();_sbS.visible=!_sbS.visible;if(_sbS.visible)_rehydrateGlass();_sb.style.display=_sbS.visible?'flex':'none';_sync();_W();});
       _sync();
     })();
 
     // ── Init ─────────────────────────────────────────────
-    _updateTitle();_renderCharTabs();_renderInjectBar();_showCurrentChar();_setTab('api');try{_updatePluginInjection();}catch(e){}
+    _updateTitle();_renderCharTabs();_renderInjectBar();_showCurrentChar();_setTab('api');_rehydrateGlass();try{_updatePluginInjection();}catch(e){}
 
     }catch(sbErr){console.warn('[VNM] statusbar init error:',sbErr.message,sbErr);}
   })();
