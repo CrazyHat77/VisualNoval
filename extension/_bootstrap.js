@@ -98,17 +98,47 @@
     return p.length ? applyHideTags(p.join('\n\n')) : '';
   }
 
-  function autosize(iframe) {
-    function fit() {
-      try { var doc = iframe.contentDocument; if (!doc) return;
-        var h = Math.max(doc.body ? doc.body.scrollHeight : 0, doc.documentElement ? doc.documentElement.scrollHeight : 0);
-        if (h) iframe.style.height = h + 'px';
-      } catch (e) {}
+  // Keep the user's reading position stable while this extension changes message
+  // heights. SillyTavern owns the actual scroll policy; this only cancels layout
+  // movement introduced by our own iframe/body replacement.
+  function captureChatScroll() {
+    var chat = document.getElementById('chat');
+    if (!chat || chat.clientHeight <= 0) return null;
+    var state = { chat: chat, top: chat.scrollTop, anchor: null, offset: 0 };
+    var top = chat.getBoundingClientRect().top;
+    var messages = chat.querySelectorAll('.mes');
+    for (var i = 0; i < messages.length; i++) {
+      var r = messages[i].getBoundingClientRect();
+      if (r.bottom > top + 1) { state.anchor = messages[i]; state.offset = r.top - top; break; }
     }
+    return state;
+  }
+  function restoreChatScroll(state) {
+    if (!state || !state.chat || !state.chat.isConnected) return;
+    var chat = state.chat;
+    if (state.anchor && state.anchor.isConnected) {
+      var top = chat.getBoundingClientRect().top;
+      chat.scrollTop += state.anchor.getBoundingClientRect().top - top - state.offset;
+    } else {
+      chat.scrollTop = state.top;
+    }
+  }
+  function preserveChatScroll(fn) {
+    var state = captureChatScroll();
+    try { return fn(); }
+    finally { restoreChatScroll(state); }
+  }
+  function autosize(iframe) {
+    // The launcher is static. One measurement after load is sufficient; the old
+    // ResizeObserver + 13 polling writes kept changing historical message heights
+    // and made SillyTavern jump between the bottom and the middle of the chat.
     iframe.addEventListener('load', function () {
-      fit();
-      try { var w = iframe.contentWindow; if (w && w.ResizeObserver && iframe.contentDocument.body) new w.ResizeObserver(fit).observe(iframe.contentDocument.body); } catch (e) {}
-      var n = 0, t = setInterval(function () { fit(); if (++n > 12) clearInterval(t); }, 250);
+      try {
+        var doc = iframe.contentDocument; if (!doc) return;
+        var h = Math.max(doc.body ? doc.body.scrollHeight : 0, doc.documentElement ? doc.documentElement.scrollHeight : 0);
+        var old = parseFloat(iframe.style.height) || 0;
+        if (h && Math.abs(h - old) > 1) preserveChatScroll(function () { iframe.style.height = Math.ceil(h) + 'px'; });
+      } catch (e) {}
     });
   }
   function buildIframe(source) {
@@ -121,7 +151,9 @@
     var ver = window.__VNM_VERSION__;
     if (ver) html = html.replace('白桃</b>&nbsp;&nbsp;v9.25', '白桃</b>&nbsp;&nbsp;v' + ver);
     ifr.setAttribute('srcdoc', html);
-    ifr.style.cssText = 'width:100%;border:none;display:block;background:transparent;overflow:hidden;';
+    // Reserve the launcher's final size before srcdoc loads so old messages do
+    // not first render at the browser iframe default (150px) and then grow.
+    ifr.style.cssText = 'width:100%;height:192px;border:none;display:block;background:transparent;overflow:hidden;overflow-anchor:none;';
     autosize(ifr);
     return ifr;
   }
@@ -142,7 +174,14 @@
     mes.classList.add('vnm-has-vn');
     return true;
   }
-  function injectAll() { if (!enabledVN()) return; var chat = document.getElementById('chat'); if (!chat) return; var l = chat.querySelectorAll('.mes'); for (var i = 0; i < l.length; i++) ensureLauncherIn(l[i]); }
+  function injectAll() {
+    if (!enabledVN()) return;
+    var chat = document.getElementById('chat'); if (!chat) return;
+    preserveChatScroll(function () {
+      var l = chat.querySelectorAll('.mes');
+      for (var i = 0; i < l.length; i++) ensureLauncherIn(l[i]);
+    });
+  }
 
   /* ---------- 全屏打开最新一轮 ---------- */
   function latestVnMes() {
@@ -286,16 +325,22 @@
     (document.head || document.documentElement).appendChild(st);
   }
 
-  function applyHideBody() { document.body.classList.toggle('vnm-hidebody-on', hideBodyOn()); }
+  function applyHideBody() {
+    var next = hideBodyOn();
+    if (document.body.classList.contains('vnm-hidebody-on') === next) return;
+    preserveChatScroll(function () { document.body.classList.toggle('vnm-hidebody-on', next); });
+  }
   function removeLaunchers() {
-    var l = document.querySelectorAll('iframe.' + HOST_CLASS);
-    for (var i = 0; i < l.length; i++) { try { l[i].remove(); } catch (e) {} }
-    var ms = document.querySelectorAll('.mes.vnm-has-vn');
-    for (var j = 0; j < ms.length; j++) {
-      ms[j].classList.remove('vnm-has-vn');
-      var ob = ms[j].querySelector('.vnm-orig-body');
-      if (ob) { while (ob.firstChild) ob.parentNode.insertBefore(ob.firstChild, ob); ob.remove(); } // 还原正文
-    }
+    preserveChatScroll(function () {
+      var l = document.querySelectorAll('iframe.' + HOST_CLASS);
+      for (var i = 0; i < l.length; i++) { try { l[i].remove(); } catch (e) {} }
+      var ms = document.querySelectorAll('.mes.vnm-has-vn');
+      for (var j = 0; j < ms.length; j++) {
+        ms[j].classList.remove('vnm-has-vn');
+        var ob = ms[j].querySelector('.vnm-orig-body');
+        if (ob) { while (ob.firstChild) ob.parentNode.insertBefore(ob.firstChild, ob); ob.remove(); } // 还原正文
+      }
+    });
   }
   function applyEnabled() {
     if (enabledVN()) { injectAll(); ensureDock(); }
