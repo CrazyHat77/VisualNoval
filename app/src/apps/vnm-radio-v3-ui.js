@@ -14,8 +14,8 @@
         '.vnr3-btn.icon{width:36px;height:36px;padding:0;border-radius:50%;font-size:20px}',
         '.vnr3-btn.choice{width:100%;display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left}',
         '.vnr3-choice-note,.vnr3-hint,.vnr3-sub,.vnr3-card-sub,.vnr3-detail-sub{opacity:.58;font-size:12px}',
-        '.vnr3-shade{position:absolute;inset:0;z-index:80;background:rgba(8,9,12,.48);backdrop-filter:blur(14px);display:flex;align-items:center;justify-content:center;padding:20px}',
-        '.vnr3-modal{width:min(560px,94vw);max-height:min(760px,88vh);overflow:auto;border:1px solid rgba(255,255,255,.12);border-radius:26px;background:rgba(40,43,50,.94);box-shadow:0 28px 90px rgba(0,0,0,.38);padding:18px;color:#f2f2f3}',
+        '.vnr3-shade{position:fixed;inset:0;z-index:2147483647;background:rgba(8,9,12,.62);backdrop-filter:blur(14px);display:flex;align-items:center;justify-content:center;padding:20px;pointer-events:auto}',
+        '.vnr3-modal{position:relative;z-index:1;width:min(560px,94vw);max-height:min(760px,88vh);overflow:auto;border:1px solid rgba(255,255,255,.12);border-radius:26px;background:rgba(40,43,50,.98);box-shadow:0 28px 90px rgba(0,0,0,.5);padding:18px;color:#f2f2f3}',
         '.vnr3-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}.vnr3-modal-title{font-size:18px;font-weight:650}',
         '.vnr3-choice-list,.vnr3-advanced{display:grid;gap:9px}.vnr3-field{display:grid;gap:7px;margin:11px 0}.vnr3-label{font-size:12px;opacity:.65}',
         '.vnr3-input,.vnr3-search,.vnr3-node-text{box-sizing:border-box;width:100%;border:1px solid rgba(255,255,255,.1);border-radius:14px;background:rgba(0,0,0,.16);color:inherit;padding:11px 13px;outline:none;font:inherit}',
@@ -40,7 +40,8 @@
         '.vnr3-speech-node,.vnr3-pause-node{border:1px solid rgba(255,255,255,.08);border-radius:17px;background:rgba(255,255,255,.035);padding:12px}.vnr3-pause-node{display:flex;align-items:center;justify-content:center;gap:10px;border-style:dashed}.vnr3-pause-input{width:70px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(0,0,0,.15);color:inherit;padding:8px}.vnr3-node-ops{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}',
         '.vnr3-node-head,.vnr3-persona-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}',
         '.vnr3-segment{display:flex;gap:6px;flex-wrap:wrap}.vnr3-segment .vnr3-btn.on{background:rgba(255,255,255,.18)}',
-        '.vnr3-mode-pill{position:absolute;right:12px;top:8px;padding:3px 7px;border-radius:8px;background:rgba(0,0,0,.25);font-size:9px;opacity:.72}.vnr3-timer-label{font-size:9px;margin-right:3px}',
+        '.vnr3-sc-action{appearance:none;border:0;background:transparent;color:inherit;display:inline-flex;align-items:center;gap:4px;padding:4px;border-radius:9px;cursor:pointer}.vnr3-sc-action:hover{background:rgba(255,255,255,.1)}.vnr3-sc-action svg{width:16px;height:16px}.vnr3-timer-label{font-size:9px;white-space:nowrap;opacity:.72}',
+        '.vnr3-bg-row{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:9px;align-items:center;padding:10px;border-radius:15px;background:rgba(255,255,255,.035)}.vnr3-bg-settings{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:8px}.vnr3-bg-settings .vnr3-field{margin:0}.vnr3-bg-row.error{opacity:.48}',
         '.vnr3-status-error{opacity:.55;text-decoration:line-through}.vnr3-persona{margin:12px 0}.vnr3-persona textarea{min-height:110px}',
         '@media(max-width:720px){.vnr3-shade{align-items:flex-end;padding:0}.vnr3-modal{width:100%;max-height:88vh;border-radius:26px 26px 0 0;padding:18px 16px 24px}.vnr3-toolbar{align-items:stretch;flex-direction:column}.vnr3-search{max-width:none}.vnr3-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.vnr3-detail-head{grid-template-columns:94px 1fr;gap:14px;align-items:center}.vnr3-detail-title{font-size:20px}.vnr3-inline-ops{grid-column:1/-1}.vnr3-song-row{grid-template-columns:minmax(0,1fr)}.vnr3-track{grid-template-columns:24px 38px minmax(0,1fr) auto}.vnr3-track>.vnr3-state{display:none}}'
     ].join('');
@@ -96,6 +97,20 @@
         w.input = inp;
         return w;
     }
+    function selectField(label, value, options) {
+        var w = V('vnr3-field');
+        w.appendChild(V('vnr3-label', label));
+        var sel = E('select', 'vnr3-input');
+        (options || []).forEach(function(option) {
+            var op = E('option', '', option.label);
+            op.value = option.value;
+            if (option.value === value) op.selected = true;
+            sel.appendChild(op);
+        });
+        w.appendChild(sel);
+        w.input = sel;
+        return w;
+    }
     function imagePicker(targetField) {
         var pick = field('或从设备选择图片', '', 'file');
         pick.input.accept = 'image/*';
@@ -109,13 +124,15 @@
         return pick;
     }
     function modal(title) {
+        var previous = shell.querySelector('.vnr3-shade');
+        if (previous) previous.remove();
         var shade = V('vnr3-shade'), card = V('vnr3-modal');
         var head = V('vnr3-modal-head');
         head.appendChild(V('vnr3-modal-title', title));
         head.appendChild(button('×', function() { shade.remove(); }, 'icon'));
         card.appendChild(head);
         shade.appendChild(card);
-        shellHost().appendChild(shade);
+        shell.appendChild(shade);
         shade.card = card;
         shade.onclick = function(ev) { if (ev.target === shade) shade.remove(); };
         return shade;
@@ -351,6 +368,7 @@
                 card.appendChild(V('vnr3-card-sub', count + ' 首歌曲'));
                 card.onclick = function() {
                     u.v3PlaylistId = pl.id; v3.state.activePlaylistId = pl.id;
+                    u.v3ShowScript = false;
                     u.view = 'playlist-detail'; v3.save(); savePos(); renderMain();
                 };
                 grid.appendChild(card);
@@ -380,18 +398,33 @@
         var sw = E('button', 'vnr2-sw' + (song.advanced ? ' on' : '')); sw.appendChild(E('i', ''));
         advToggle.appendChild(sw); m.card.appendChild(advToggle);
         var adv = V('vnr3-advanced');
-        var vol = field('独立音量 0-100', song.advanced && song.advanced.volume !== undefined ? song.advanced.volume : 55, 'number');
-        var duck = field('主持人说话时音量 0-100', song.advanced && song.advanced.duckVolume !== undefined ? song.advanced.duckVolume : 20, 'number');
-        adv.appendChild(vol); adv.appendChild(duck);
+        var oldAdv = song.advanced || {};
+        var volumeMode = oldAdv.volumeMode || (song.advanced ? 'custom' : 'global');
+        var duckMode = oldAdv.duckMode || (oldAdv.duck === true ? 'custom' : (oldAdv.duck === false ? 'none' : 'follow'));
+        var volMode = selectField('背景音量', volumeMode, [
+            { value: 'global', label: '跟随背景音总音量' },
+            { value: 'custom', label: '使用自定义音量' }
+        ]);
+        var vol = field('自定义音量 0-100', oldAdv.volume !== undefined ? oldAdv.volume : 55, 'number');
+        var duckModeField = selectField('主持人说话时', duckMode, [
+            { value: 'follow', label: '跟随普通音乐压低设置' },
+            { value: 'none', label: '保持原音量，不压低' },
+            { value: 'custom', label: '压低到自定义音量' }
+        ]);
+        var duck = field('说话时自定义音量 0-100', oldAdv.duckVolume !== undefined ? oldAdv.duckVolume : 20, 'number');
+        adv.appendChild(volMode); adv.appendChild(vol); adv.appendChild(duckModeField); adv.appendChild(duck);
         var loop = V('vnr3-toggle-row'); loop.appendChild(V('', '单曲循环'));
         var loopSw = E('button', 'vnr2-sw' + (!song.advanced || song.advanced.loop !== false ? ' on' : '')); loopSw.appendChild(E('i', '')); loop.appendChild(loopSw); adv.appendChild(loop);
-        var duckRow = V('vnr3-toggle-row'); duckRow.appendChild(V('', '说话时压低'));
-        var duckSw = E('button', 'vnr2-sw' + (song.advanced && song.advanced.duck ? ' on' : '')); duckSw.appendChild(E('i', '')); duckRow.appendChild(duckSw); adv.appendChild(duckRow);
         m.card.appendChild(adv);
-        function paintAdv() { adv.style.display = sw.classList.contains('on') ? 'grid' : 'none'; }
+        function paintAdv() {
+            adv.style.display = sw.classList.contains('on') ? 'grid' : 'none';
+            vol.style.display = volMode.input.value === 'custom' ? 'grid' : 'none';
+            duck.style.display = duckModeField.input.value === 'custom' ? 'grid' : 'none';
+        }
         sw.onclick = function() { sw.classList.toggle('on'); paintAdv(); };
+        volMode.input.onchange = paintAdv;
+        duckModeField.input.onchange = paintAdv;
         loopSw.onclick = function() { loopSw.classList.toggle('on'); };
-        duckSw.onclick = function() { duckSw.classList.toggle('on'); };
         paintAdv();
         var ops = V('vnr3-ops');
         ops.appendChild(button('取消', function() { m.remove(); }));
@@ -401,8 +434,11 @@
                 id: song.id || undefined, title: title.input.value, artist: artist.input.value,
                 url: url.input.value, cover: cover.input.value,
                 advanced: sw.classList.contains('on') ? {
-                    volume: Number(vol.input.value) || 55, duckVolume: Number(duck.input.value) || 20,
-                    loop: loopSw.classList.contains('on'), duck: duckSw.classList.contains('on')
+                    volumeMode: volMode.input.value,
+                    volume: Number(vol.input.value) || 55,
+                    duckMode: duckModeField.input.value,
+                    duckVolume: Number(duck.input.value) || 20,
+                    loop: loopSw.classList.contains('on')
                 } : null,
                 scriptVersions: song.scriptVersions || [], selectedScriptId: song.selectedScriptId || ''
             };
@@ -436,6 +472,11 @@
             ops.appendChild(button('添加歌曲', function() { openManualAdd(pl); }));
         }
         ops.appendChild(button('设置', function() { openPlaylistSettings(pl); }));
+        ops.appendChild(button(u.v3ShowScript ? '收起完整台本' : '查看 / 编辑完整台本', function() {
+            u.v3ShowScript = !u.v3ShowScript;
+            savePos();
+            renderMain();
+        }));
         info.appendChild(ops); head.appendChild(info); box.appendChild(head);
         var bulk = V('vnr3-bulk');
         var selected = {};
@@ -525,6 +566,7 @@
         });
         box.appendChild(list);
         if (!pl.system) box.appendChild(button('＋ 添加一首歌曲', function() { openSongEditor(pl, null); }, 'vnr3-wide-add'));
+        if (u.v3ShowScript) renderContinuous(box, pl);
     }
 
     function openRecommend(refSongs, targetPl) {
@@ -638,42 +680,103 @@
         var m = modal('高级背景音');
         var songs = v3.advancedSongs();
         var master = field('背景音总音量 0-100', v3.state.backgroundMasterVolume === undefined ? 100 : v3.state.backgroundMasterVolume, 'number');
-        master.input.onchange = function() { v3.state.backgroundMasterVolume = Number(master.input.value) || 0; v3.save(); };
+        master.input.onchange = function() {
+            v3.state.backgroundMasterVolume = Number(master.input.value) || 0;
+            v3.save();
+            v3.refreshBackgroundVolumes();
+        };
         m.card.appendChild(master);
         if (!songs.length) m.card.appendChild(V('vnr2-empty', '暂无开启高级播放参数的音频。请在歌单中编辑歌曲并展开高级参数。'));
         var list = V('vnr3-preview-list');
         songs.forEach(function(song) {
             var key = song.id || song.title;
-            var row = V('vnr3-bg-row');
+            var adv = song.advanced || {};
+            var row = V('vnr3-bg-row' + (adv.error ? ' error' : ''));
+            var ck = E('button', 'vnr3-check' + (v3.state.backgroundChecked[key] ? ' on' : ''));
+            ck.type = 'button';
+            ck.onclick = function() {
+                v3.state.backgroundChecked[key] = !v3.state.backgroundChecked[key];
+                ck.classList.toggle('on', !!v3.state.backgroundChecked[key]);
+                v3.save();
+            };
+            row.appendChild(ck);
             var info = V('');
             info.appendChild(V('vnr3-track-title', song.title));
-            info.appendChild(V('vnr3-track-sub', song.advanced && song.advanced.error ? song.advanced.error : (song.artist || '独立音频')));
+            info.appendChild(V('vnr3-track-sub', adv.error ? adv.error : (song.artist || '独立音频')));
             row.appendChild(info);
-            row.appendChild(button(v3.audio[key] ? '停止' : '播放', function() {
+            var play = button(v3.audio[key] ? '停止' : '播放', function() {
                 if (v3.audio[key]) v3.stopBackground(key); else v3.playBackground(song);
-                m.remove(); openBackgrounds();
-            }, v3.audio[key] ? '' : 'primary'));
+                play.textContent = v3.audio[key] ? '停止' : '播放';
+                ck.classList.toggle('on', !!v3.state.backgroundChecked[key]);
+            }, v3.audio[key] ? '' : 'primary');
+            row.appendChild(play);
+            var settings = V('vnr3-bg-settings');
+            var legacyVolumeMode = adv.volumeMode || 'custom';
+            var vm = selectField('背景音量', legacyVolumeMode, [
+                { value: 'global', label: '跟随总音量' },
+                { value: 'custom', label: '自定义音量' }
+            ]);
+            var vv = field('自定义音量 0-100', adv.volume !== undefined ? adv.volume : 55, 'number');
+            var legacyDuckMode = adv.duckMode || (adv.duck === true ? 'custom' : (adv.duck === false ? 'none' : 'follow'));
+            var dm = selectField('主持人说话时', legacyDuckMode, [
+                { value: 'follow', label: '跟随普通音乐' },
+                { value: 'none', label: '保持音量' },
+                { value: 'custom', label: '自定义压低音量' }
+            ]);
+            var dv = field('说话时音量 0-100', adv.duckVolume !== undefined ? adv.duckVolume : 20, 'number');
+            var loop = V('vnr3-toggle-row');
+            loop.appendChild(V('', '单曲循环'));
+            var loopSw = E('button', 'vnr2-sw' + (adv.loop !== false ? ' on' : ''));
+            loopSw.appendChild(E('i', ''));
+            loop.appendChild(loopSw);
+            settings.appendChild(vm); settings.appendChild(vv); settings.appendChild(dm); settings.appendChild(dv); settings.appendChild(loop);
+            row.appendChild(settings);
+            function saveAdvanced() {
+                adv.volumeMode = vm.input.value;
+                adv.volume = Number(vv.input.value) || 55;
+                adv.duckMode = dm.input.value;
+                adv.duckVolume = Number(dv.input.value) || 20;
+                adv.loop = loopSw.classList.contains('on');
+                song.advanced = adv;
+                vv.style.display = adv.volumeMode === 'custom' ? 'grid' : 'none';
+                dv.style.display = adv.duckMode === 'custom' ? 'grid' : 'none';
+                if (v3.audio[key] && v3.audio[key].audio) v3.audio[key].audio.loop = adv.loop;
+                v3.save();
+                v3.refreshBackgroundVolumes();
+            }
+            vm.input.onchange = saveAdvanced;
+            vv.input.onchange = saveAdvanced;
+            dm.input.onchange = saveAdvanced;
+            dv.input.onchange = saveAdvanced;
+            loopSw.onclick = function() { loopSw.classList.toggle('on'); saveAdvanced(); };
+            saveAdvanced();
             list.appendChild(row);
         });
         m.card.appendChild(list);
         var ops = V('vnr3-ops');
         ops.appendChild(button('停止全部', function() { v3.stopAllBackgrounds(); m.remove(); }));
-        ops.appendChild(button('播放勾选项', function() { v3.playSelectedBackgrounds(); m.remove(); }, 'primary'));
+        ops.appendChild(button('开始播放勾选项', function() { v3.playSelectedBackgrounds(); m.remove(); }, 'primary'));
         m.card.appendChild(ops);
     }
 
-    function renderContinuous(box) {
+    function renderContinuous(box, pl) {
+        pl = pl || v3.currentPlaylist() || v3.playlist('now-playing');
         var head = V('vnr3-cont-head');
-        var version = v3.activeContinuous();
+        var version = v3.activeContinuous(pl.id);
         var title = V('');
-        title.appendChild(V('vnr3-title', '陪伴台本'));
-        title.appendChild(V('vnr3-sub', version ? version.title : '暂无陪伴模式连续台本'));
+        title.appendChild(V('vnr3-title', pl.name + ' · 完整台本'));
+        title.appendChild(V('vnr3-sub', version ? version.title : '这个歌单还没有完整台本'));
         head.appendChild(title);
         var ops = V('vnr3-inline-ops');
-        ops.appendChild(button('请求连续台本', function() { v3.setMode('companion'); v3.requestCompanion(true); }, 'primary'));
+        ops.appendChild(button('请求完整台本', function() {
+            v3.state.activePlaylistId = pl.id;
+            v3.setMode('companion');
+            v3.requestCompanion(true);
+        }, 'primary'));
         ops.appendChild(button('新建空白台本', function() {
-            var fresh = { id: 'continuous-' + Date.now(), title: '自定义陪伴台本', createdAt: Date.now(), favorite: false, edited: true, nodes: [] };
+            var fresh = { id: 'continuous-' + Date.now(), playlistId: pl.id, title: '自定义完整台本', createdAt: Date.now(), favorite: false, edited: true, nodes: [] };
             v3.state.continuousVersions.unshift(fresh);
+            v3.state.activeContinuousIds[pl.id] = fresh.id;
             v3.state.activeContinuousId = fresh.id;
             v3.save();
             renderMain();
@@ -710,8 +813,26 @@
             }));
         }
         head.appendChild(ops); box.appendChild(head);
+        var versions = (v3.state.continuousVersions || []).filter(function(item) {
+            return (item.playlistId || 'now-playing') === pl.id;
+        });
+        if (versions.length) {
+            var versionSelect = selectField('台本历史版本', version && version.id || '', versions.map(function(item, index) {
+                return {
+                    value: item.id,
+                    label: (item.favorite ? '★ ' : '') + (item.title || ('台本 ' + (index + 1)))
+                };
+            }));
+            versionSelect.input.onchange = function() {
+                v3.state.activeContinuousIds[pl.id] = versionSelect.input.value;
+                v3.state.activeContinuousId = versionSelect.input.value;
+                v3.save();
+                renderMain();
+            };
+            box.appendChild(versionSelect);
+        }
         if (!version) {
-            box.appendChild(V('vnr2-empty', '当前没有陪伴模式台本。可以请求 AI 生成，也可以在生成后进行结构化编辑。'));
+            box.appendChild(V('vnr2-empty', '这个歌单还没有完整台本。可以请求 AI 生成，也可以新建空白台本后自己编辑。'));
             return;
         }
         var nodes = version.nodes || [];
@@ -806,19 +927,12 @@
                 };
             }
         }
-        var navs = sidebar.querySelectorAll('.vnr2-nav');
-        var target = navs[navs.length - 1];
-        if (target && !target.querySelector('.vnr3-script-nav')) {
-            var script = V('vnr2-nav-it vnr3-script-nav' + (u.view === 'continuous' ? ' on' : ''));
-            script.innerHTML = icon2('quote') + '<span>完整台本</span>';
-            script.onclick = function() { u.view = 'continuous'; u.sidesOpen = false; savePos(); renderSidebar(); renderMain(); };
-            target.appendChild(script);
-        }
     };
 
     var oldRenderMain = renderMain;
     renderMain = function() {
-        if (u.view !== 'playlists' && u.view !== 'playlist-detail' && u.view !== 'continuous') {
+        if (u.view === 'continuous') u.view = 'playlists';
+        if (u.view !== 'playlists' && u.view !== 'playlist-detail') {
             oldRenderMain();
             if (u.view === 'artist') augmentArtistShortPersona(main);
             return;
@@ -826,16 +940,15 @@
         main.innerHTML = '';
         var head = V('vnr2-main-head');
         var tt = V('');
-        tt.appendChild(V('vnr2-h1', u.view === 'continuous' ? 'Complete Script' : (u.view === 'playlist-detail' ? 'Playlist' : 'All Playlists')));
-        tt.appendChild(V('vnr2-h1s', v3.modeLabel() + ' · ' + (eng.apiStatus && eng.apiStatus.state === 'loading' ? '正在请求' + (eng.apiStatus.label || '') : statusText())));
+        tt.appendChild(V('vnr2-h1', u.view === 'playlist-detail' ? 'Playlist' : 'All Playlists'));
+        tt.appendChild(V('vnr2-h1s', eng.apiStatus && eng.apiStatus.state === 'loading' ? '正在请求' + (eng.apiStatus.label || '') : statusText()));
         head.appendChild(tt);
         head.appendChild(ib('vnr2-mini30', 'minus', '收起到播放条', function() { u.mode = 'bar'; savePos(); drawShell(); }));
         main.appendChild(head);
         var status = V('vnr2-status-row', statusText() + ' · ' + songTitle(curSong()));
         main.appendChild(status); main.__status = status;
         if (u.view === 'playlists') renderPlaylists(main);
-        else if (u.view === 'playlist-detail') renderPlaylistDetail(main);
-        else renderContinuous(main);
+        else renderPlaylistDetail(main);
     };
 
     var oldRenderBottomBar = renderBottomBar;
@@ -853,12 +966,6 @@
             ghosts[0].innerHTML = icon2(v3.state.mode === 'recommend' ? 'spark2' : (v3.state.mode === 'playlist' ? 'listB' : 'quote'));
             ghosts[0].onclick = openModeMenu;
         }
-        if (ghosts[1]) {
-            ghosts[1].classList.remove('ghost');
-            ghosts[1].title = '睡眠倒计时';
-            ghosts[1].innerHTML = (v3.sleepLabel() ? '<span class="vnr3-timer-label">' + v3.sleepLabel() + '</span>' : '') + icon2('listRect');
-            ghosts[1].onclick = openSleep;
-        }
         if (ghosts[2]) {
             ghosts[2].classList.remove('ghost');
             ghosts[2].title = '待处理台本';
@@ -868,12 +975,20 @@
         if (card) {
             var icons = card.querySelector('.vnr2-sc-icons');
             if (icons) {
-                icons.style.cursor = 'pointer';
-                icons.title = '高级背景音';
-                icons.onclick = openBackgrounds;
+                icons.innerHTML = '';
+                var timerButton = E('button', 'vnr3-sc-action');
+                timerButton.type = 'button';
+                timerButton.title = '睡眠倒计时';
+                timerButton.innerHTML = (v3.sleepLabel() ? '<span class="vnr3-timer-label">' + v3.sleepLabel() + '</span>' : '') + icon2('speaker2');
+                timerButton.onclick = openSleep;
+                var backgroundsButton = E('button', 'vnr3-sc-action');
+                backgroundsButton.type = 'button';
+                backgroundsButton.title = '高级背景音管理';
+                backgroundsButton.innerHTML = icon2('more');
+                backgroundsButton.onclick = openBackgrounds;
+                icons.appendChild(timerButton);
+                icons.appendChild(backgroundsButton);
             }
-            if (!card.querySelector('.vnr3-mode-pill')) card.appendChild(V('vnr3-mode-pill', v3.modeLabel()));
-            else card.querySelector('.vnr3-mode-pill').textContent = v3.modeLabel();
         }
     };
 
@@ -882,7 +997,7 @@
             try {
                 if (u.mode === 'studio') {
                     renderBottomBar();
-                    if (/^(playlists|playlist-detail|continuous)$/.test(u.view || '')) renderMain();
+                    if (/^(playlists|playlist-detail)$/.test(u.view || '')) renderMain();
                 }
             } catch (e) {}
         });

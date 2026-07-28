@@ -3,10 +3,10 @@
  * It deliberately uses ES5 syntax because the radio runs inside SillyTavern webviews.
  */
 (function vnr3InstallCore() {
-    if (eng.v3 && eng.v3.version >= 3) return;
+    if (eng.v3 && eng.v3.version >= 3.1) return;
 
     var v3 = eng.v3 = {
-        version: 3,
+        version: 3.1,
         audio: {},
         continuousRuntime: null,
         sleepTimer: null,
@@ -95,8 +95,16 @@
         st.activePlaylistId = st.activePlaylistId || 'now-playing';
         st.shortPersonas = st.shortPersonas || {};
         st.continuousVersions = Object.prototype.toString.call(st.continuousVersions) === '[object Array]' ? st.continuousVersions : [];
+        st.activeContinuousIds = st.activeContinuousIds || {};
+        st.continuousVersions.forEach(function(version) {
+            if (version && !version.playlistId) version.playlistId = 'now-playing';
+        });
+        if (st.activeContinuousId && !st.activeContinuousIds['now-playing']) {
+            st.activeContinuousIds['now-playing'] = st.activeContinuousId;
+        }
         st.favoriteContinuousIds = Object.prototype.toString.call(st.favoriteContinuousIds) === '[object Array]' ? st.favoriteContinuousIds : [];
         st.backgroundSelection = st.backgroundSelection || {};
+        st.backgroundChecked = st.backgroundChecked || {};
         st.pendingImport = null;
         st.sleep = st.sleep || null;
         st.schema = 3;
@@ -629,6 +637,7 @@
             }
             var version = {
                 id: uid('continuous'),
+                playlistId: (v3.currentPlaylist() || {}).id || 'now-playing',
                 createdAt: Date.now(),
                 title: '陪伴台本 ' + new Date().toLocaleString(),
                 nodes: nodes,
@@ -638,8 +647,17 @@
             };
             v3.state.continuousVersions.unshift(version);
             var favorites = v3.state.continuousVersions.filter(function(x) { return x.favorite; });
-            var normal = v3.state.continuousVersions.filter(function(x) { return !x.favorite; }).slice(0, 5);
+            var normalByPlaylist = {}, normal = [];
+            v3.state.continuousVersions.filter(function(x) { return !x.favorite; }).forEach(function(x) {
+                var pid = x.playlistId || 'now-playing';
+                normalByPlaylist[pid] = normalByPlaylist[pid] || 0;
+                if (normalByPlaylist[pid] < 5) {
+                    normalByPlaylist[pid]++;
+                    normal.push(x);
+                }
+            });
             v3.state.continuousVersions = favorites.concat(normal);
+            v3.state.activeContinuousIds[version.playlistId] = version.id;
             v3.state.activeContinuousId = version.id;
             v3.save();
             _clearApiStatus('v3-companion');
@@ -653,10 +671,13 @@
         });
     };
 
-    v3.activeContinuous = function() {
+    v3.activeContinuous = function(playlistId) {
+        playlistId = playlistId || (v3.currentPlaylist() || {}).id || 'now-playing';
         var arr = v3.state.continuousVersions || [];
-        for (var i = 0; i < arr.length; i++) if (arr[i].id === v3.state.activeContinuousId) return arr[i];
-        return arr[0] || null;
+        var activeId = v3.state.activeContinuousIds[playlistId] || '';
+        for (var i = 0; i < arr.length; i++) if (arr[i].playlistId === playlistId && arr[i].id === activeId) return arr[i];
+        for (var j = 0; j < arr.length; j++) if ((arr[j].playlistId || 'now-playing') === playlistId) return arr[j];
+        return null;
     };
 
     function hostForName(name) {
@@ -823,6 +844,7 @@
         if (!version) return;
         v3.stopContinuous();
         v3.state.activeContinuousId = version.id;
+        v3.state.activeContinuousIds[version.playlistId || 'now-playing'] = version.id;
         var rt = v3.continuousRuntime = {
             versionId: id,
             items: runtimeItems(version),
@@ -970,6 +992,31 @@
         return song && (song.id || songKey(song));
     }
 
+    function backgroundBaseVolume(adv) {
+        adv = adv || {};
+        if ((adv.volumeMode || 'global') === 'custom') return _clamp(_num(adv.volume, 55) / 100, 0, 1);
+        return _clamp(_num(v3.state.backgroundMasterVolume, 100) / 100, 0, 1);
+    }
+
+    function backgroundTargetVolume(adv, ducked) {
+        adv = adv || {};
+        var base = backgroundBaseVolume(adv);
+        if (!ducked) return base;
+        var mode = adv.duckMode;
+        if (!mode) mode = adv.duck === true ? 'custom' : (adv.duck === false ? 'none' : 'follow');
+        if (mode === 'none') return base;
+        if (mode === 'custom') return _clamp(_num(adv.duckVolume, 20) / 100, 0, 1);
+        if (cfg.speechDuck === false) return base;
+        return _clamp(_num(cfg.duckVolume, 20) / 100, 0, 1);
+    }
+
+    v3.refreshBackgroundVolumes = function() {
+        Object.keys(v3.audio).forEach(function(k) {
+            var rec = v3.audio[k], adv = rec.song.advanced || {};
+            if (rec.audio) rec.audio.volume = backgroundTargetVolume(adv, !!v3.backgroundDucked);
+        });
+    };
+
     v3.advancedSongs = function() {
         var out = [], seen = {};
         v3.playlists().forEach(function(pl) {
@@ -991,7 +1038,7 @@
             var a = new TOP.Audio(song.url);
             var adv = song.advanced || {};
             a.loop = adv.loop !== false;
-            a.volume = _clamp((_num(adv.volume, 55) / 100) * (_num(v3.state.backgroundMasterVolume, 100) / 100), 0, 1);
+            a.volume = backgroundTargetVolume(adv, !!v3.backgroundDucked);
             a.muted = !!(eng.store && eng.store.muted);
             a.onerror = function() {
                 v3.state.backgroundSelection[k] = false;
@@ -1002,6 +1049,7 @@
             a.play();
             v3.audio[k] = { audio: a, song: song };
             v3.state.backgroundSelection[k] = true;
+            v3.state.backgroundChecked[k] = true;
             adv.error = '';
             v3.save();
             v3.uiRefresh();
@@ -1024,7 +1072,7 @@
 
     v3.playSelectedBackgrounds = function() {
         v3.advancedSongs().forEach(function(song) {
-            if (v3.state.backgroundSelection[advancedKey(song)]) v3.playBackground(song);
+            if (v3.state.backgroundChecked[advancedKey(song)]) v3.playBackground(song);
         });
     };
 
@@ -1035,13 +1083,8 @@
     var oldDuck = eng.duck;
     eng.duck = function(on) {
         oldDuck(on);
-        Object.keys(v3.audio).forEach(function(k) {
-            var rec = v3.audio[k], adv = rec.song.advanced || {};
-            if (!rec.audio) return;
-            var base = _num(adv.volume, 55) / 100;
-            var target = on && adv.duck ? (_num(adv.duckVolume, 20) / 100) : base;
-            rec.audio.volume = _clamp(target * (_num(v3.state.backgroundMasterVolume, 100) / 100), 0, 1);
-        });
+        v3.backgroundDucked = !!on;
+        v3.refreshBackgroundVolumes();
     };
 
     v3.fadeStopAll = function(ms) {

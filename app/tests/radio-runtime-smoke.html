@@ -17,6 +17,33 @@
       fetch('../src/apps/vnm-radio.json').then(function (response) {
         return response.json();
       }).then(function (app) {
+        localStorage.setItem('vnm-radio-state-v2', JSON.stringify({
+          ui2: { mode: 'studio', view: 'playlists', sidesOpen: false },
+          v3Radio: {
+            activePlaylistId: 'playlist-test',
+            mode: 'recommend',
+            playlists: [
+              { id: 'now-playing', system: true, name: '正在播放', songs: [] },
+              {
+                id: 'playlist-test',
+                name: '测试歌单',
+                songs: [{
+                  id: 'rain-test',
+                  title: '雨声',
+                  artist: '环境音',
+                  url: 'about:blank',
+                  advanced: {
+                    volumeMode: 'global',
+                    volume: 55,
+                    duckMode: 'follow',
+                    duckVolume: 20,
+                    loop: true
+                  }
+                }]
+              }
+            ]
+          }
+        }));
         var state = {
           characters: [],
           activeCharIds: [],
