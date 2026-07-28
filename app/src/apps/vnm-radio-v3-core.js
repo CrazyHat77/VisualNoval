@@ -547,15 +547,6 @@
         '【当前剧情上下文】',
         '{{剧情上下文}}',
         '',
-        '【酒馆历史】',
-        '{{酒馆历史}}',
-        '',
-        '【Horae 总结】',
-        '{{Horae总结}}',
-        '',
-        '【柏宝书总结】',
-        '{{柏宝书总结}}',
-        '',
         '【电台聊天总结】',
         '{{聊天总结}}',
         '',
@@ -573,14 +564,14 @@
         '【停顿规则】',
         '{{停顿数量要求}}',
         '{{停顿秒数要求}}',
-        'pause 是主持人说完一段内容后留给用户的独立安静时段，不是语气停顿。pause 前后应在内容上自然衔接；播放 pause 时系统会停止请求语音并恢复背景声音，倒计时结束后再继续后面的 speech。',
+        '停顿是主持人说完一段内容后留给用户的独立安静时段，不是语气停顿。需要停顿时，必须在 nodes 数组中插入独立字符串标记 [pause=Ns]，例如停顿 24 秒就输出 "[pause=24s]"。标记不得放进 speech.ttsText 或 speech.displayText，也不得让主持人念出。播放停顿标记时，系统会停止请求语音并恢复背景声音，倒计时结束后再继续后面的 speech。',
         '',
         '【语言与节点规则】',
         '1. speech.ttsText 是发送给 TTS 的文本，只能使用 {{朗读语言}}。',
         '2. speech.displayText 是显示给用户看的文本，只能使用 {{显示语言}}；当显示语言与朗读语言相同时，两者内容可以相同。',
         '3. speech.host 必须与当前这段话的说话者一致。',
         '4. 每个 speech 应是一段适合单独请求语音的完整话语，不要把一句话无意义地拆成许多极短节点。',
-        '5. pause 节点只能包含 type 与 seconds，不要给 pause 添加主持人或文本。',
+        '5. 停顿只能使用独立的 "[pause=Ns]" 字符串标记；N 必须是允许区间内的秒数。',
         '',
         '【输出要求】',
         '{{输出格式要求}}',
@@ -597,12 +588,13 @@
             { group: '请求模式', key: 'v3PauseMaxCount', type: 'number', label: '连续台本最多停顿节点', default: 8, min: 0, max: 100 },
             { group: '请求模式', key: 'v3PauseMinSeconds', type: 'number', label: '单次停顿最少秒数', default: 5, min: 0, max: 3600 },
             { group: '请求模式', key: 'v3PauseMaxSeconds', type: 'number', label: '单次停顿最多秒数', default: 30, min: 0, max: 3600 },
-            { group: '请求模式', key: 'v3TtsChunkChars', type: 'number', label: '连续台本 TTS 单块最大字数', default: 220, min: 60, max: 1000 },
+            { group: '请求模式', key: 'v3TtsSplitMode', type: 'select', label: '陪伴长台本 TTS 分块方式', default: 'pause', options: [{ v: 'pause', l: '按停顿标记分块' }, { v: 'chars', l: '按最大字数（完整句末切分）' }] },
+            { group: '请求模式', key: 'v3TtsChunkChars', type: 'number', label: '按字数分块：单块软上限（仅陪伴模式）', default: 220, min: 60, max: 1000 },
             { group: '请求模式', key: 'v3TtsPrefetch', type: 'number', label: '连续台本提前准备语音块数', default: 2, min: 1, max: 8 },
             { group: '提示词', key: 'v3TaskModulePrompt', type: 'textarea-presets', label: '当前任务要求模块', rows: 6, variables: ['{{当前任务要求}}'], default: '请严格执行当前请求模式定义的任务；不要额外推荐用户没有要求的内容。' },
             { group: '提示词', key: 'v3RandomModulePrompt', type: 'textarea-presets', label: '随机播放独立台本模块', rows: 7, variables: ['{{随机播放要求}}'], default: '当前曲目将以随机顺序播放。每首歌曲的台本必须能够独立成立，不得引用上一首或下一首，不得使用“刚才那首”“接下来”“延续前面的话题”等依赖固定顺序的表达。不同歌曲之间不得形成必须按顺序理解的情节、对话或情绪递进。' },
             { group: '提示词', key: 'v3LyricsModulePrompt', type: 'textarea-presets', label: '模型自行检索歌词模块', rows: 6, variables: ['{{歌词检索要求}}'], default: '你可以根据准确的歌名和歌手自行尝试回忆或查找歌词来理解歌曲；如果无法可靠找到，就忽略歌词。禁止编造歌词、伪造歌词内容或假装已经找到。' },
-            { group: '提示词', key: 'v3CompanionPrompt', type: 'textarea-presets', label: '陪伴模式完整提示词', rows: 20, variables: ['{{主持人列表}}', '{{用户名称}}', '{{用户设定}}', '{{角色设定}}', '{{世界书}}', '{{电台世界书}}', '{{剧情上下文}}', '{{酒馆历史}}', '{{Horae总结}}', '{{柏宝书总结}}', '{{聊天总结}}', '{{最近主播对话}}', '{{用户输入}}', '{{目标字数}}', '{{停顿数量要求}}', '{{停顿秒数要求}}', '{{朗读语言}}', '{{显示语言}}', '{{输出格式要求}}'], default: COMPANION_PROMPT_DEFAULT },
+            { group: '提示词', key: 'v3CompanionPrompt', type: 'textarea-presets', label: '陪伴模式完整提示词', rows: 20, variables: ['{{主持人列表}}', '{{用户名称}}', '{{用户设定}}', '{{角色设定}}', '{{世界书}}', '{{电台世界书}}', '{{剧情上下文}}', '{{聊天总结}}', '{{最近主播对话}}', '{{用户输入}}', '{{目标字数}}', '{{停顿数量要求}}', '{{停顿秒数要求}}', '{{朗读语言}}', '{{显示语言}}', '{{输出格式要求}}'], default: COMPANION_PROMPT_DEFAULT },
             { group: '提示词', key: 'v3RecommendOnlyPrompt', type: 'textarea-presets', label: '只推荐歌曲模块', rows: 8, variables: ['{{只推荐歌曲要求}}'], default: '只推荐真实存在的歌曲，不写台本、不写主持人对白。只返回歌曲 title 与 artist，不要编造 URL。' }
         ];
         list.forEach(function(f) {
@@ -618,6 +610,14 @@
             }
             if (cfg[k] && cfg[k].indexOf('{{当前任务要求}}') < 0) cfg[k] += moduleBlock;
         });
+        if (cfg.v3CompanionPrompt) {
+            cfg.v3CompanionPrompt = cfg.v3CompanionPrompt
+                .replace(/\n*【酒馆历史】\n\{\{酒馆历史\}\}/g, '')
+                .replace(/\n*【Horae 总结】\n\{\{Horae总结\}\}/g, '')
+                .replace(/\n*【柏宝书总结】\n\{\{柏宝书总结\}\}/g, '')
+                .replace('pause 是主持人说完一段内容后留给用户的独立安静时段，不是语气停顿。pause 前后应在内容上自然衔接；播放 pause 时系统会停止请求语音并恢复背景声音，倒计时结束后再继续后面的 speech。', '停顿是主持人说完一段内容后留给用户的独立安静时段，不是语气停顿。需要停顿时，必须在 nodes 数组中插入独立字符串标记 [pause=Ns]，例如停顿 24 秒就输出 "[pause=24s]"。标记不得放进 speech.ttsText 或 speech.displayText，也不得让主持人念出。播放停顿标记时，系统会停止请求语音并恢复背景声音，倒计时结束后再继续后面的 speech。')
+                .replace('5. pause 节点只能包含 type 与 seconds，不要给 pause 添加主持人或文本。', '5. 停顿只能使用独立的 "[pause=Ns]" 字符串标记；N 必须是允许区间内的秒数。');
+        }
         _saveCfg();
     }
     addFields();
@@ -756,7 +756,7 @@
         var maxSeconds = Math.max(0, _num(cfg.v3PauseMaxSeconds, 30));
         return {
             count: count,
-            seconds: '每个 pause.seconds 必须在 ' + Math.min(minSeconds, maxSeconds) + ' 到 ' + Math.max(minSeconds, maxSeconds) + ' 秒之间。'
+            seconds: '每个停顿必须作为 nodes 数组中的独立字符串输出，严格使用 "[pause=Ns]" 格式；N 必须在 ' + Math.min(minSeconds, maxSeconds) + ' 到 ' + Math.max(minSeconds, maxSeconds) + ' 之间。例如 24 秒写成 "[pause=24s]"。不得把标记写进主持人的朗读文本。'
         };
     }
 
@@ -767,21 +767,64 @@
         var hosts = _selectedHosts(eng.store || {});
         var fallback = hosts[0] && hosts[0].name || '主持人';
         var out = [];
+
+        function pauseValue(seconds) {
+            var min = Math.max(0, _num(cfg.v3PauseMinSeconds, 5));
+            var max = Math.max(0, _num(cfg.v3PauseMaxSeconds, 30));
+            return _clamp(_num(seconds, min || 5), Math.min(min, max), Math.max(min, max));
+        }
+
+        function pushPause(seconds) {
+            out.push({ id: uid('pause'), type: 'pause', seconds: pauseValue(seconds) });
+        }
+
+        function markedParts(value) {
+            value = String(value || '');
+            var parts = [], re = /\[pause\s*=\s*(\d+(?:\.\d+)?)\s*s\]/ig, at = 0, m;
+            while ((m = re.exec(value))) {
+                if (m.index > at) parts.push({ type: 'speech', text: value.slice(at, m.index) });
+                parts.push({ type: 'pause', seconds: m[1] });
+                at = re.lastIndex;
+            }
+            if (at < value.length) parts.push({ type: 'speech', text: value.slice(at) });
+            return parts;
+        }
+
+        function pushMarkedSpeech(host, tts, display) {
+            var ttsParts = markedParts(tts);
+            var displayParts = markedParts(display);
+            var displaySpeech = displayParts.filter(function(p) { return p.type === 'speech'; });
+            var displayIndex = 0;
+            ttsParts.forEach(function(part) {
+                if (part.type === 'pause') {
+                    pushPause(part.seconds);
+                    return;
+                }
+                var spoken = String(part.text || '').trim();
+                var shown = displaySpeech[displayIndex] ? String(displaySpeech[displayIndex].text || '').trim() : spoken;
+                displayIndex++;
+                if (!spoken && !shown) return;
+                out.push({ id: uid('speech'), type: 'speech', host: host, ttsText: spoken || shown, displayText: shown || spoken });
+            });
+        }
+
         raw.forEach(function(n) {
             if (!n) return;
+            if (typeof n === 'string') {
+                var marker = /^\s*\[pause\s*=\s*(\d+(?:\.\d+)?)\s*s\]\s*$/i.exec(n);
+                if (marker) pushPause(marker[1]);
+                else pushMarkedSpeech(fallback, n, n);
+                return;
+            }
             if (n.type === 'pause' || n.pauseSeconds !== undefined || n.seconds !== undefined && !n.ttsText && !n.text) {
-                out.push({
-                    id: uid('pause'),
-                    type: 'pause',
-                    seconds: _clamp(_num(n.seconds !== undefined ? n.seconds : n.pauseSeconds, 5), _num(cfg.v3PauseMinSeconds, 5), _num(cfg.v3PauseMaxSeconds, 30))
-                });
+                pushPause(n.seconds !== undefined ? n.seconds : n.pauseSeconds);
                 return;
             }
             var host = String(n.host || fallback).trim();
             var tts = String(n.ttsText || n.tts || n.speech || n.text || '').trim();
             var display = String(n.displayText || n.display || n.translation || tts).trim();
             if (!tts && !display) return;
-            out.push({ id: uid('speech'), type: 'speech', host: host, ttsText: tts || display, displayText: display || tts });
+            pushMarkedSpeech(host, tts || display, display || tts);
         });
         return out;
     }
@@ -792,7 +835,7 @@
         eng.busy = true;
         var words = Math.max(300, _num(cfg.v3CompanionWords, 3000));
         var pauseRules = companionPauseRules();
-        var output = '{"nodes":[{"type":"speech","host":"主持人名字","ttsText":"发送给TTS的文本","displayText":"显示文本"},{"type":"pause","seconds":15}]}';
+        var output = '{"nodes":[{"type":"speech","host":"主持人名字","ttsText":"发送给TTS的文本","displayText":"显示文本"},"[pause=15s]",{"type":"speech","host":"主持人名字","ttsText":"停顿后继续发送给TTS的文本","displayText":"停顿后继续显示的文本"}]}';
         var prompt = _buildCommon(cfg.v3CompanionPrompt || COMPANION_PROMPT_DEFAULT, {
             targetWords: String(words),
             pauseCountRequirement: pauseRules.count,
@@ -861,29 +904,44 @@
         text = String(text || '').trim();
         max = Math.max(60, _num(max, 220));
         if (text.length <= max) return [text];
-        var sentences = text.match(/[^。！？!?；;\n]+[。！？!?；;]?/g) || [text], out = [], buf = '';
-        sentences.forEach(function(s) {
-            s = s.trim();
-            if (!s) return;
-            if (buf && (buf.length + s.length > max)) { out.push(buf); buf = ''; }
-            if (s.length > max) {
-                if (buf) { out.push(buf); buf = ''; }
-                for (var i = 0; i < s.length; i += max) out.push(s.slice(i, i + max));
-            } else buf += s;
-        });
-        if (buf) out.push(buf);
+        var out = [], start = 0, len = text.length;
+        var endChars = '。！？!?；;.…\n';
+        var closingChars = '"\'”’」』】）》';
+        function isEnd(ch) { return endChars.indexOf(ch) >= 0; }
+        while (start < len) {
+            var target = Math.min(start + max, len);
+            if (target >= len) {
+                out.push(text.slice(start).trim());
+                break;
+            }
+            var cut = -1, i;
+            for (i = target - 1; i >= start; i--) {
+                if (isEnd(text.charAt(i))) { cut = i + 1; break; }
+            }
+            if (cut <= start) {
+                for (i = target; i < len; i++) {
+                    if (isEnd(text.charAt(i))) { cut = i + 1; break; }
+                }
+            }
+            if (cut <= start) cut = len;
+            while (cut < len && closingChars.indexOf(text.charAt(cut)) >= 0) cut++;
+            var chunk = text.slice(start, cut).trim();
+            if (chunk) out.push(chunk);
+            start = cut;
+            while (start < len && /\s/.test(text.charAt(start))) start++;
+        }
         return out;
     }
 
     function runtimeItems(version) {
         var out = [];
-        (version.nodes || []).forEach(function(n) {
-            if (n.type === 'pause') {
-                out.push({ id: n.id, type: 'pause', seconds: n.seconds });
-                return;
-            }
-            var parts = splitTtsText(n.ttsText, cfg.v3TtsChunkChars);
+        var splitMode = cfg.v3TtsSplitMode === 'chars' ? 'chars' : 'pause';
+        var source = version.nodes || [];
+
+        function appendSpeech(n) {
+            var parts = splitMode === 'chars' ? splitTtsText(n.ttsText, cfg.v3TtsChunkChars) : [String(n.ttsText || '').trim()];
             parts.forEach(function(part, index) {
+                if (!part) return;
                 out.push({
                     id: n.id + '-' + index,
                     nodeId: n.id,
@@ -897,7 +955,43 @@
                     error: ''
                 });
             });
+        }
+
+        if (splitMode === 'chars') {
+            source.forEach(function(n) {
+                if (n.type === 'pause') out.push({ id: n.id, type: 'pause', seconds: n.seconds });
+                else appendSpeech(n);
+            });
+            return out;
+        }
+
+        var pending = null;
+        function flushPending() {
+            if (!pending) return;
+            appendSpeech(pending);
+            pending = null;
+        }
+        source.forEach(function(n) {
+            if (n.type === 'pause') {
+                flushPending();
+                out.push({ id: n.id, type: 'pause', seconds: n.seconds });
+                return;
+            }
+            if (!pending || pending.host !== n.host) {
+                flushPending();
+                pending = {
+                    id: n.id,
+                    type: 'speech',
+                    host: n.host,
+                    ttsText: String(n.ttsText || '').trim(),
+                    displayText: String(n.displayText || '').trim()
+                };
+                return;
+            }
+            pending.ttsText += (pending.ttsText ? '\n' : '') + String(n.ttsText || '').trim();
+            pending.displayText += (pending.displayText ? '\n' : '') + String(n.displayText || '').trim();
         });
+        flushPending();
         return out;
     }
 
@@ -906,6 +1000,7 @@
         var wanted = Math.max(1, _num(cfg.v3TtsPrefetch, 2)), active = 0;
         for (var i = rt.index; i < rt.items.length && active < wanted; i++) {
             var item = rt.items[i];
+            if (item.type === 'pause') break;
             if (item.type !== 'speech' || item.url || item.requesting || item.error) continue;
             item.requesting = true;
             active++;
