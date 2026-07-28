@@ -133,6 +133,17 @@
         });
         m.card.appendChild(list);
     }
+    function confirmAction(title, note, action) {
+        var m = modal(title);
+        m.card.appendChild(V('vnr3-hint', note || '此操作无法自动撤销。'));
+        var ops = V('vnr3-ops');
+        ops.appendChild(button('取消', function() { m.remove(); }));
+        ops.appendChild(button('确认', function() {
+            m.remove();
+            action && action();
+        }, 'danger'));
+        m.card.appendChild(ops);
+    }
 
     function playlistCover(pl) {
         if (pl.id === 'now-playing') {
@@ -215,10 +226,10 @@
                 }));
             }));
             ops.appendChild(button('删除歌单', function() {
-            if (TOP.confirm('删除歌单“' + pl.name + '”？')) {
-                v3.deletePlaylist(pl.id);
-                m.remove(); u.view = 'playlists'; renderMain(); renderSidebar();
-            }
+                confirmAction('删除“' + pl.name + '”？', '歌单及其中的本地歌曲记录会被删除。', function() {
+                    v3.deletePlaylist(pl.id);
+                    m.remove(); u.view = 'playlists'; renderMain(); renderSidebar();
+                });
             }, 'danger'));
         }
         ops.appendChild(button('取消', function() { m.remove(); }));
@@ -264,7 +275,7 @@
             status.textContent = '正在解析…';
             v3.importNetease(url.input.value, function(err, result) {
                 if (err) { status.textContent = err; return; }
-                m.card.querySelectorAll('.vnr3-import-preview').forEach(function(x) { x.remove(); });
+                [].slice.call(m.card.querySelectorAll('.vnr3-import-preview')).forEach(function(x) { x.remove(); });
                 var preview = V('vnr3-import-preview');
                 preview.appendChild(V('vnr3-preview-title', (result.name || '歌单') + ' · ' + result.songs.length + ' 首'));
                 var list = V('vnr3-preview-list');
@@ -279,10 +290,11 @@
                     m.remove(); renderMain();
                 }, 'primary'));
                 io.appendChild(button('完全覆盖', function() {
-                    if (!TOP.confirm('完全覆盖当前歌单？')) return;
-                    var r = v3.addSongs(pl.id, result.songs, true);
-                    _toast('已覆盖并导入 ' + r.added + ' 首');
-                    m.remove(); renderMain();
+                    confirmAction('完全覆盖当前歌单？', '现有歌曲会被本次解析结果替换。', function() {
+                        var r = v3.addSongs(pl.id, result.songs, true);
+                        _toast('已覆盖并导入 ' + r.added + ' 首');
+                        m.remove(); renderMain();
+                    });
                 }));
                 preview.appendChild(io);
                 m.card.insertBefore(preview, ops);
@@ -475,7 +487,9 @@
         });
         bulkOps.appendChild(recommend);
         if (!pl.system) bulkOps.appendChild(button('清空歌单', function() {
-            if (TOP.confirm('清空“' + pl.name + '”中的全部歌曲？')) { pl.songs = []; v3.save(); renderMain(); }
+            confirmAction('清空“' + pl.name + '”？', '歌单会保留，但其中歌曲将全部移除。', function() {
+                pl.songs = []; v3.save(); renderMain();
+            });
         }, 'danger'));
         bulk.appendChild(bulkOps); box.appendChild(bulk);
         var list = V('vnr3-track-list');

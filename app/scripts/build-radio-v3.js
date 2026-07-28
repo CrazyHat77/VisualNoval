@@ -35,7 +35,10 @@ let page = String(data.pageCode || '');
 page = stripBlock(page, CORE_START, CORE_END);
 page = stripBlock(page, UI_START, UI_END);
 
-const coreAnchor = '    function _setApiStatus(state, type, label, error, note) {';
+// The v3 core reads FIELDS and wraps the final eng.request/eng.next methods.
+// It must run after both the settings table and the engine have been initialized,
+// but before ensureShell() creates the radio UI.
+const coreAnchor = '    function ensureShell() {';
 const uiAnchor = '        function renderMain() {';
 if (page.indexOf(coreAnchor) < 0) throw new Error('Radio v3 core anchor not found');
 if (page.indexOf(uiAnchor) < 0) throw new Error('Radio v3 UI anchor not found');

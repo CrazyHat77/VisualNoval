@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>VNM Radio Runtime Smoke Test</title>
+</head>
+<body>
+  <div id="result">loading</div>
+  <script>
+    (function () {
+      function el(tag, cls, html) {
+        var node = document.createElement(tag || 'div');
+        node.className = cls || '';
+        if (html !== undefined) node.innerHTML = html;
+        return node;
+      }
+      fetch('../src/apps/vnm-radio.json').then(function (response) {
+        return response.json();
+      }).then(function (app) {
+        var state = {
+          characters: [],
+          activeCharIds: [],
+          user: { name: '测试用户', persona: '' },
+          wbEntries: [],
+          wbActive: [],
+          vnmApps: [],
+          presets: [],
+          history: {}
+        };
+        var ctx = {
+          sbS: state,
+          settings: {},
+          save: function () {},
+          toast: function () {},
+          div: function (cls, html) { return el('div', cls, html); },
+          el: el,
+          svg: function () { return ''; },
+          fetch: window.fetch.bind(window),
+          Audio: window.Audio,
+          atob: window.atob.bind(window),
+          getChars: function () { return state.characters; },
+          getActiveChars: function () { return []; },
+          getUser: function () { return state.user; },
+          getWbActive: function () { return []; },
+          renderTemplate: function (value) { return String(value || ''); },
+          back: function () {},
+          go: function () {}
+        };
+        var page = new Function('ctx', 'return (' + app.pageCode + ')(ctx);');
+        var root = page(ctx);
+        if (!root || root.nodeType !== 1) throw new Error('pageCode did not return a DOM element');
+        document.body.appendChild(root);
+        document.getElementById('result').textContent = 'PASS';
+        window.__VNR_SMOKE_RESULT__ = { ok: true, version: app.version };
+      }).catch(function (error) {
+        document.getElementById('result').textContent = 'FAIL: ' + (error && error.stack || error);
+        window.__VNR_SMOKE_RESULT__ = { ok: false, error: String(error && error.stack || error) };
+        console.error(error);
+      });
+    })();
+  </script>
+</body>
+</html>
