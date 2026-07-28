@@ -4,10 +4,11 @@
   "description": "Visual Novel by白桃 酒馆助手脚本 — 由 vn_visual_novel-by白桃.json 正则重构而来",
   "repository": "LAWLEITLIGHT/VisualNoval",
   "scripts": {
+    "build:radio": "node scripts/build-radio-v3.js",
     "build": "node scripts/build.js",
     "build:loader": "node scripts/build-loader.js",
     "verify": "node scripts/verify.js",
-    "gate": "npm run build && npm run build:loader && npm run build:ext && npm run verify",
+    "gate": "npm run build:radio && npm run build && npm run build:loader && npm run build:ext && npm run verify",
     "build:ext": "node scripts/build-extension.js"
   },
   "license": "MIT"
