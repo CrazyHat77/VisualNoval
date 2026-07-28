@@ -3,10 +3,10 @@
  * It deliberately uses ES5 syntax because the radio runs inside SillyTavern webviews.
  */
 (function vnr3InstallCore() {
-    if (eng.v3 && eng.v3.version >= 3.1) return;
+    if (eng.v3 && eng.v3.version >= 3.2) return;
 
     var v3 = eng.v3 = {
-        version: 3.1,
+        version: 3.2,
         audio: {},
         continuousRuntime: null,
         sleepTimer: null,
@@ -293,13 +293,63 @@
         return out;
     };
 
-    v3.importNetease = function(url, done) {
-        var m = String(url || '').match(/(?:music\.163\.com|163cn\.tv)[\s\S]*?(?:id=|playlist\/)(\d+)/i);
-        if (!m) {
-            done && done('无法从链接中识别歌单 ID');
-            return;
+    function neteasePlaylistId(text) {
+        var source = String(text || '').replace(/&amp;/gi, '&');
+        try { source += '\n' + decodeURIComponent(source); } catch (_) {}
+        var patterns = [
+            /(?:music\.163\.com|y\.music\.163\.com)[^\s"'<>]*?[?&#]id=(\d+)/i,
+            /(?:music\.163\.com|y\.music\.163\.com)[^\s"'<>]*?\/playlist\/(\d+)/i,
+            /(?:playlistId|playlist_id|resourceId|resource_id)["'\s:=]+(\d{5,})/i
+        ];
+        for (var i = 0; i < patterns.length; i++) {
+            var match = source.match(patterns[i]);
+            if (match) return match[1];
         }
-        var id = m[1];
+        return '';
+    }
+
+    function neteaseShareUrl(text) {
+        var match = String(text || '').match(/https?:\/\/(?:163cn\.tv|(?:y\.)?music\.163\.com)\/[^\s<>"']+/i);
+        return match ? match[0].replace(/[)\]}>，。！？、；;]+$/g, '') : '';
+    }
+
+    function resolveNeteasePlaylistId(input) {
+        var directId = neteasePlaylistId(input);
+        if (directId) return Promise.resolve(directId);
+
+        var shortUrl = neteaseShareUrl(input);
+        if (!shortUrl || !/https?:\/\/163cn\.tv\//i.test(shortUrl)) {
+            return Promise.reject(new Error('无法从分享内容中识别歌单 ID，请粘贴网易云歌单分享链接'));
+        }
+
+        // 浏览器不能直接读取跨域 302 的 Location。先尝试直接请求（部分宿主会代转），
+        // 再使用支持 CORS 的短链展开接口，确保手机端不依赖 Bridge 扩展。
+        return TOP.fetch(shortUrl, { redirect: 'follow' }).then(function(r) {
+            var id = neteasePlaylistId(r && r.url);
+            if (id) return id;
+            return r.text().then(function(body) {
+                id = neteasePlaylistId(body);
+                if (!id) throw new Error('短链接直连未返回歌单 ID');
+                return id;
+            });
+        }).catch(function() {
+            return TOP.fetch('https://unshorten.me/json/' + encodeURIComponent(shortUrl))
+                .then(function(r) {
+                    if (!r.ok) throw new Error('短链接展开 HTTP ' + r.status);
+                    return r.json();
+                })
+                .then(function(result) {
+                    var id = neteasePlaylistId(result && (result.resolved_url || result.resolvedUrl || result.url));
+                    if (!id) throw new Error('短链接展开结果中没有歌单 ID');
+                    return id;
+                });
+        }).catch(function(e) {
+            throw new Error('网易云短链接展开失败：' + ((e && e.message) || String(e)) + '。也可以在网易云浏览器页面复制带 id=数字 的长链接');
+        });
+    }
+
+    v3.importNetease = function(url, done) {
+        resolveNeteasePlaylistId(url).then(function(id) {
         var sources = [
             function() {
                 return TOP.fetch('https://api.injahow.cn/meting/?server=netease&type=playlist&id=' + encodeURIComponent(id))
@@ -358,6 +408,9 @@
                 attempt(i + 1, errors);
             });
         })(0, []);
+        }).catch(function(e) {
+            done && done((e && e.message) || String(e));
+        });
     };
 
     function queueItemFromSong(song) {
