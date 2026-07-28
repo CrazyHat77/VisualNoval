@@ -3,10 +3,10 @@
  * It deliberately uses ES5 syntax because the radio runs inside SillyTavern webviews.
  */
 (function vnr3InstallCore() {
-    if (eng.v3 && eng.v3.version >= 3.2) return;
+    if (eng.v3 && eng.v3.version >= 3.3) return;
 
     var v3 = eng.v3 = {
-        version: 3.2,
+        version: 3.3,
         audio: {},
         continuousRuntime: null,
         sleepTimer: null,
@@ -414,7 +414,13 @@
     };
 
     function queueItemFromSong(song) {
-        var it = _itemFromSong(cleanSong(song), 'manual');
+        song = cleanSong(song);
+        var it = _itemFromSong(song, 'manual');
+        it.song.cover = song.cover || '';
+        it.song.coverUrl = song.cover || '';
+        it.song.album = song.album || '';
+        it.song.sourceId = song.sourceId || '';
+        if (!it.song._trackId && song.sourceId) it.song._trackId = song.sourceId;
         var versions = song.scriptVersions || [];
         var selected = null;
         if (song.selectedScriptId) {

@@ -24,18 +24,18 @@
         '.vnr3-ops,.vnr3-inline-ops{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:15px}.vnr3-inline-ops{justify-content:flex-start}',
         '.vnr3-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0}',
         '.vnr3-toolbar{display:flex;align-items:end;justify-content:space-between;gap:14px;margin:8px 0 18px}.vnr3-title{font-size:20px;font-weight:650}.vnr3-search{max-width:240px}',
-        '.vnr3-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(142px,1fr));gap:18px}',
-        '.vnr3-pl-card{min-width:0;cursor:pointer;border-radius:20px;padding:10px;background:rgba(255,255,255,.035);transition:.18s ease}',
+        '.vnr3-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(142px,1fr));gap:18px;align-items:start}',
+        '.vnr3-pl-card{min-width:0;cursor:pointer;border-radius:20px;padding:10px;background:rgba(255,255,255,.035);transition:.18s ease;align-self:start}',
         '.vnr3-pl-card:hover{background:rgba(255,255,255,.08);transform:translateY(-2px)}',
         '.vnr3-pl-cover,.vnr3-add-cover,.vnr3-detail-cover{position:relative;aspect-ratio:1/1;overflow:hidden;border-radius:17px;background:linear-gradient(145deg,rgba(255,255,255,.12),rgba(0,0,0,.15));box-shadow:0 12px 30px rgba(0,0,0,.18)}',
-        '.vnr3-pl-cover img,.vnr3-detail-cover img{width:100%;height:100%;object-fit:cover}.vnr3-default-cover,.vnr3-add-cover{height:100%;display:grid;place-items:center;color:rgba(255,255,255,.52);font-size:34px}',
+        '.vnr3-pl-cover img,.vnr3-detail-cover img{width:100%;height:100%;object-fit:cover}.vnr3-default-cover{height:100%;display:grid;place-items:center;color:rgba(255,255,255,.52);font-size:34px}',
         '.vnr3-current-chip{position:absolute;left:8px;bottom:8px;padding:4px 7px;border-radius:9px;background:rgba(20,20,22,.7);backdrop-filter:blur(8px);font-size:10px}',
         '.vnr3-card-name{font-weight:620;margin-top:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-        '.vnr3-add-cover{aspect-ratio:1/1;border:1px dashed rgba(255,255,255,.2);box-shadow:none;font-size:38px}',
+        '.vnr3-add-cover{width:100%;height:auto;aspect-ratio:1/1;border:1px dashed rgba(255,255,255,.2);box-shadow:none;font-size:38px;display:grid;place-items:center;color:rgba(255,255,255,.52)}',
         '.vnr3-detail-head{display:grid;grid-template-columns:150px 1fr;gap:22px;align-items:end;margin:8px 0 20px}.vnr3-detail-title{font-size:26px;font-weight:680;margin:5px 0}.vnr3-kicker{font-size:10px;letter-spacing:.16em;opacity:.52}',
         '.vnr3-song-list,.vnr3-node-list{display:grid;gap:7px}.vnr3-song-row,.vnr3-node,.vnr3-persona{border:1px solid rgba(255,255,255,.08);border-radius:17px;background:rgba(255,255,255,.035);padding:12px}',
         '.vnr3-song-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px}.vnr3-song-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-        '.vnr3-track-list{display:grid;gap:7px}.vnr3-track{display:grid;grid-template-columns:26px 42px minmax(0,1fr) auto auto;align-items:center;gap:10px;border-radius:16px;padding:8px;background:rgba(255,255,255,.035)}',
+        '.vnr3-track-list{display:grid;gap:7px;align-content:start;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;padding-right:5px;scrollbar-width:thin}.vnr3-track-list::-webkit-scrollbar,.vnr3-script-body::-webkit-scrollbar{width:5px}.vnr3-track-list::-webkit-scrollbar-thumb,.vnr3-script-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);border-radius:999px}.vnr3-track{display:grid;grid-template-columns:26px 42px minmax(0,1fr) auto auto;align-items:center;gap:10px;border-radius:16px;padding:8px;background:rgba(255,255,255,.035)}',
         '.vnr3-check{width:20px;height:20px;border:1px solid rgba(255,255,255,.2);border-radius:7px;background:transparent}.vnr3-check.on:after{content:"✓";color:#eee}.vnr3-track-pic{width:42px;height:42px;border-radius:11px;overflow:hidden;display:grid;place-items:center;background:rgba(255,255,255,.08)}.vnr3-track-pic img{width:100%;height:100%;object-fit:cover}.vnr3-track-title,.vnr3-track-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vnr3-track-sub{opacity:.55;font-size:11px}',
         '.vnr3-speech-node,.vnr3-pause-node{border:1px solid rgba(255,255,255,.08);border-radius:17px;background:rgba(255,255,255,.035);padding:12px}.vnr3-pause-node{display:flex;align-items:center;justify-content:center;gap:10px;border-style:dashed}.vnr3-pause-input{width:70px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(0,0,0,.15);color:inherit;padding:8px}.vnr3-node-ops{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}',
         '.vnr3-node-head,.vnr3-persona-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}',
@@ -43,7 +43,9 @@
         '.vnr3-sc-action{appearance:none;border:0;background:transparent;color:inherit;display:inline-flex;align-items:center;gap:4px;padding:4px;border-radius:9px;cursor:pointer}.vnr3-sc-action:hover{background:rgba(255,255,255,.1)}.vnr3-sc-action svg{width:16px;height:16px}.vnr3-timer-label{font-size:9px;white-space:nowrap;opacity:.72}',
         '.vnr3-bg-row{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:9px;align-items:center;padding:10px;border-radius:15px;background:rgba(255,255,255,.035)}.vnr3-bg-settings{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:8px}.vnr3-bg-settings .vnr3-field{margin:0}.vnr3-bg-row.error{opacity:.48}',
         '.vnr3-status-error{opacity:.55;text-decoration:line-through}.vnr3-persona{margin:12px 0}.vnr3-persona textarea{min-height:110px}',
-        '@media(max-width:720px){.vnr3-shade{align-items:flex-end;padding:0}.vnr3-modal{width:100%;max-height:88vh;border-radius:26px 26px 0 0;padding:18px 16px 24px}.vnr3-toolbar{align-items:stretch;flex-direction:column}.vnr3-search{max-width:none}.vnr3-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.vnr3-detail-head{grid-template-columns:94px 1fr;gap:14px;align-items:center}.vnr3-detail-title{font-size:20px}.vnr3-inline-ops{grid-column:1/-1}.vnr3-song-row{grid-template-columns:minmax(0,1fr)}.vnr3-track{grid-template-columns:24px 38px minmax(0,1fr) auto}.vnr3-track>.vnr3-state{display:none}}'
+        '.vnr3-script-layer{position:absolute;inset:34px 390px 82px;z-index:40;pointer-events:auto;display:flex;align-items:stretch;justify-content:center}.vnr3-script-window{width:100%;min-width:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(255,255,255,.14);border-radius:28px;background:rgba(34,37,44,.96);box-shadow:0 28px 90px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.09);backdrop-filter:blur(34px);-webkit-backdrop-filter:blur(34px)}',
+        '.vnr3-script-window-head{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,.08)}.vnr3-script-window-title{font-size:20px;font-weight:680}.vnr3-script-window-sub{font-size:11px;opacity:.5;margin-top:3px}.vnr3-script-close{width:38px;height:38px;flex:0 0 38px;border:1px solid rgba(255,255,255,.12);border-radius:50%;background:rgba(255,255,255,.07);color:inherit;font-size:23px;cursor:pointer}.vnr3-script-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;padding:18px 20px 24px;user-select:text}.vnr3-script-body .vnr3-cont-head{padding:0 0 12px}.vnr3-script-body .vnr3-speech-node{background:rgba(255,255,255,.045);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}',
+        '@media(max-width:720px){.vnr3-shade{align-items:flex-end;padding:0}.vnr3-modal{width:100%;max-height:88vh;border-radius:26px 26px 0 0;padding:18px 16px 24px}.vnr3-toolbar{align-items:stretch;flex-direction:column}.vnr3-search{max-width:none}.vnr3-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.vnr3-detail-head{grid-template-columns:94px 1fr;gap:14px;align-items:center}.vnr3-detail-title{font-size:20px}.vnr3-inline-ops{grid-column:1/-1}.vnr3-song-row{grid-template-columns:minmax(0,1fr)}.vnr3-track{grid-template-columns:24px 38px minmax(0,1fr) auto}.vnr3-track>.vnr3-state{display:none}.vnr3-script-layer{inset:26px 358px 76px}.vnr3-script-window{border-radius:24px}}'
     ].join('');
 
     if (!eng.__v3RequestWrapped) {
@@ -81,6 +83,28 @@
     }
 
     function V(cls, text) { return E('div', cls || '', text === undefined ? '' : text); }
+
+    var vnr3BaseFetchPic = _fetchPic;
+    _fetchPic = function(song, cb) {
+        var direct = song && (song.cover || song.pic || song.picture || song.coverUrl);
+        if (!direct && song) {
+            var key = _songKey(song);
+            v3.playlists().some(function(pl) {
+                return (pl.songs || []).some(function(savedSong) {
+                    if (_songKey(savedSong) !== key || !savedSong.cover) return false;
+                    direct = savedSong.cover;
+                    return true;
+                });
+            });
+        }
+        if (direct) {
+            song.cover = song.cover || direct;
+            song.coverUrl = direct;
+            cb(direct);
+            return;
+        }
+        return vnr3BaseFetchPic(song, cb);
+    };
     function button(text, fn, cls) {
         var b = E('button', 'vnr3-btn' + (cls ? ' ' + cls : ''), text);
         b.type = 'button';
@@ -472,11 +496,7 @@
             ops.appendChild(button('添加歌曲', function() { openManualAdd(pl); }));
         }
         ops.appendChild(button('设置', function() { openPlaylistSettings(pl); }));
-        ops.appendChild(button(u.v3ShowScript ? '收起完整台本' : '查看 / 编辑完整台本', function() {
-            u.v3ShowScript = !u.v3ShowScript;
-            savePos();
-            renderMain();
-        }));
+        ops.appendChild(button('查看 / 编辑完整台本', function() { openContinuousPanel(pl); }));
         info.appendChild(ops); head.appendChild(info); box.appendChild(head);
         var bulk = V('vnr3-bulk');
         var selected = {};
@@ -484,6 +504,11 @@
         var bulkOps = V('vnr3-inline-ops');
         function selectedSongs() {
             return songs.filter(function(s) { return selected[s.id]; });
+        }
+        function paintChecks() {
+            [].slice.call(list.querySelectorAll('.vnr3-check[data-song-id]')).forEach(function(check) {
+                check.classList.toggle('on', !!selected[check.dataset.songId]);
+            });
         }
         function chooseTarget(move) {
             var picked = selectedSongs();
@@ -505,17 +530,27 @@
                 } };
             }));
         }
+        bulkOps.appendChild(button('全选', function() {
+            songs.forEach(function(song) { selected[song.id] = true; });
+            paintChecks();
+        }));
+        bulkOps.appendChild(button('取消全选', function() {
+            selected = {};
+            paintChecks();
+        }));
         bulkOps.appendChild(button('复制到…', function() { chooseTarget(false); }));
         bulkOps.appendChild(button('移动到…', function() { chooseTarget(true); }));
-        bulkOps.appendChild(button('删除勾选', function() {
+        bulkOps.appendChild(button('删除', function() {
             var picked = selectedSongs();
             if (!picked.length) { _toast('请先勾选歌曲'); return; }
-            if (pl.system) picked.forEach(function(song) {
-                var items = (eng.current ? [eng.current] : []).concat(eng.queue || []);
-                items.forEach(function(it) { if (it.id === song.queueItemId) eng.removeItem(it); });
+            confirmAction('删除已选的 ' + picked.length + ' 首歌曲？', pl.system ? '只会从当前播放队列移除已选歌曲。' : '只会从这个歌单移除已选歌曲，不影响其他歌单中的同名歌曲。', function() {
+                if (pl.system) picked.forEach(function(song) {
+                    var items = (eng.current ? [eng.current] : []).concat(eng.queue || []);
+                    items.forEach(function(it) { if (it.id === song.queueItemId) eng.removeItem(it); });
+                });
+                else v3.removeSongs(pl.id, picked.map(function(s) { return s.id; }));
+                renderMain();
             });
-            else v3.removeSongs(pl.id, picked.map(function(s) { return s.id; }));
-            renderMain();
         }, 'danger'));
         if (pl.system) bulkOps.appendChild(button('请求勾选台本', function() {
             var ids = selectedSongs().map(function(s) { return s.queueItemId; });
@@ -538,6 +573,8 @@
         songs.forEach(function(song, index) {
             var row = V('vnr3-track');
             var ck = E('button', 'vnr3-check'); ck.type = 'button'; ck.textContent = '';
+            ck.dataset.songId = song.id;
+            ck.title = '选择“' + (song.title || '这首歌曲') + '”';
             ck.onclick = function() { selected[song.id] = !selected[song.id]; ck.classList.toggle('on', !!selected[song.id]); };
             row.appendChild(ck);
             var pic = V('vnr3-track-pic');
@@ -566,7 +603,6 @@
         });
         box.appendChild(list);
         if (!pl.system) box.appendChild(button('＋ 添加一首歌曲', function() { openSongEditor(pl, null); }, 'vnr3-wide-add'));
-        if (u.v3ShowScript) renderContinuous(box, pl);
     }
 
     function openRecommend(refSongs, targetPl) {
@@ -653,14 +689,21 @@
 
     function openSleep() {
         var m = modal('睡眠倒计时');
-        var minutes = field('时长（分钟）', 30, 'number');
+        var currentSleep = v3.state.sleep && v3.state.sleep.active ? v3.state.sleep : null;
+        var minutes = field('自定义时长（分钟，可直接输入）', currentSleep ? currentSleep.durationMinutes : 30, 'number');
+        minutes.input.min = '0.05';
+        minutes.input.step = '0.05';
+        minutes.input.inputMode = 'decimal';
+        minutes.input.placeholder = '例如 12、37.5 或 120';
         var limit = field('最多自动请求次数', 5, 'number');
         m.card.appendChild(V('vnr3-segment', ''));
         var presets = m.card.lastChild;
         [15, 30, 45, 60, 90].forEach(function(n) {
             presets.appendChild(button(n + ' 分钟', function() { minutes.input.value = n; }));
         });
-        m.card.appendChild(minutes); m.card.appendChild(limit);
+        m.card.appendChild(minutes);
+        m.card.appendChild(V('vnr3-hint', '上方快捷按钮只是预设；也可以在输入框填写任意分钟数。'));
+        m.card.appendChild(limit);
         var loop = V('vnr3-toggle-row'); loop.appendChild(V('', '次数耗尽后循环已有内容'));
         var sw = E('button', 'vnr2-sw'); sw.appendChild(E('i', '')); sw.onclick = function() { sw.classList.toggle('on'); }; loop.appendChild(sw);
         m.card.appendChild(loop);
@@ -670,7 +713,9 @@
         var ops = V('vnr3-ops');
         ops.appendChild(button('关闭', function() { m.remove(); }));
         ops.appendChild(button('开始', function() {
-            v3.startSleep(minutes.input.value, limit.input.value, sw.classList.contains('on'), 'current');
+            var value = parseFloat(minutes.input.value);
+            if (!isFinite(value) || value <= 0) { _toast('请输入大于 0 的倒计时时长'); minutes.input.focus(); return; }
+            v3.startSleep(value, limit.input.value, sw.classList.contains('on'), 'current');
             m.remove(); renderBottomBar();
         }, 'primary'));
         m.card.appendChild(ops);
@@ -759,7 +804,41 @@
         m.card.appendChild(ops);
     }
 
+    function openContinuousPanel(pl) {
+        var old = stage.querySelector('.vnr3-script-layer');
+        if (old) old.remove();
+        var layer = V('vnr3-script-layer');
+        var panel = V('vnr3-script-window');
+        var head = V('vnr3-script-window-head');
+        var title = V('');
+        title.appendChild(V('vnr3-script-window-title', '完整台本'));
+        title.appendChild(V('vnr3-script-window-sub', (pl && pl.name || '当前歌单') + ' · 阅读、编辑与播放'));
+        head.appendChild(title);
+        var close = E('button', 'vnr3-script-close', '×');
+        close.type = 'button';
+        close.title = '关闭完整台本';
+        close.onclick = function() { layer.remove(); };
+        head.appendChild(close);
+        panel.appendChild(head);
+        var body = V('vnr3-script-body');
+        panel.appendChild(body);
+        layer.appendChild(panel);
+        stage.appendChild(layer);
+        function paint() {
+            var y = body.scrollTop || 0;
+            body.innerHTML = '';
+            body.__vnr3Refresh = paint;
+            renderContinuous(body, pl);
+            body.scrollTop = y;
+        }
+        paint();
+    }
+
     function renderContinuous(box, pl) {
+        function refreshContinuous() {
+            if (box && typeof box.__vnr3Refresh === 'function') box.__vnr3Refresh();
+            else renderMain();
+        }
         pl = pl || v3.currentPlaylist() || v3.playlist('now-playing');
         var head = V('vnr3-cont-head');
         var version = v3.activeContinuous(pl.id);
@@ -779,7 +858,7 @@
             v3.state.activeContinuousIds[pl.id] = fresh.id;
             v3.state.activeContinuousId = fresh.id;
             v3.save();
-            renderMain();
+            refreshContinuous();
         }));
         if (version) {
             ops.appendChild(button('整体播放', function() { v3.playContinuous(version.id); }));
@@ -806,7 +885,7 @@
                         version.edited = true;
                         v3.save();
                         rawModal.remove();
-                        renderMain();
+                        refreshContinuous();
                     } catch (e) { _toast('JSON 无效：' + e.message); }
                 }, 'primary'));
                 rawModal.card.appendChild(rawOps);
@@ -827,7 +906,7 @@
                 v3.state.activeContinuousIds[pl.id] = versionSelect.input.value;
                 v3.state.activeContinuousId = versionSelect.input.value;
                 v3.save();
-                renderMain();
+                refreshContinuous();
             };
             box.appendChild(versionSelect);
         }
@@ -844,7 +923,7 @@
                 var sec = E('input', 'vnr3-pause-input'); sec.type = 'number'; sec.value = node.seconds || 0;
                 sec.onchange = function() { node.seconds = Number(sec.value) || 0; version.edited = true; };
                 pause.appendChild(sec); pause.appendChild(V('', '秒'));
-                pause.appendChild(button('删除', function() { nodes.splice(index, 1); version.edited = true; renderMain(); }, 'icon'));
+                pause.appendChild(button('删除', function() { nodes.splice(index, 1); version.edited = true; refreshContinuous(); }, 'icon'));
                 list.appendChild(pause);
                 return;
             }
@@ -866,9 +945,9 @@
             no.appendChild(button('试听', function() {
                 _tts(node.ttsText, _charByName(node.host, hosts), function(url) { new TOP.Audio(url).play(); }, function(e) { _toast(e); });
             }));
-            no.appendChild(button('复制', function() { nodes.splice(index + 1, 0, JSON.parse(JSON.stringify(node))); nodes[index + 1].id = 'speech-' + Date.now(); renderMain(); }));
-            no.appendChild(button('在后面插入停顿', function() { nodes.splice(index + 1, 0, { id: 'pause-' + Date.now(), type: 'pause', seconds: 15 }); renderMain(); }));
-            no.appendChild(button('删除', function() { nodes.splice(index, 1); renderMain(); }, 'danger'));
+            no.appendChild(button('复制', function() { nodes.splice(index + 1, 0, JSON.parse(JSON.stringify(node))); nodes[index + 1].id = 'speech-' + Date.now(); refreshContinuous(); }));
+            no.appendChild(button('在后面插入停顿', function() { nodes.splice(index + 1, 0, { id: 'pause-' + Date.now(), type: 'pause', seconds: 15 }); refreshContinuous(); }));
+            no.appendChild(button('删除', function() { nodes.splice(index, 1); refreshContinuous(); }, 'danger'));
             card.appendChild(no); list.appendChild(card);
         });
         box.appendChild(list);
@@ -883,15 +962,15 @@
                 displayText: ''
             });
             version.edited = true;
-            renderMain();
+            refreshContinuous();
         }));
         save.appendChild(button('添加停顿', function() {
             nodes.push({ id: 'pause-' + Date.now(), type: 'pause', seconds: 15 });
             version.edited = true;
-            renderMain();
+            refreshContinuous();
         }));
         save.appendChild(button('保存当前编辑', function() { version.edited = true; v3.save(); _toast('台本已保存'); }, 'primary'));
-        save.appendChild(button(version.favorite ? '取消收藏' : '收藏版本', function() { version.favorite = !version.favorite; v3.save(); renderMain(); }));
+        save.appendChild(button(version.favorite ? '取消收藏' : '收藏版本', function() { version.favorite = !version.favorite; v3.save(); refreshContinuous(); }));
         box.appendChild(save);
     }
 
@@ -923,18 +1002,36 @@
             if ((links[i].textContent || '').indexOf('All Playlists') >= 0) {
                 links[i].classList.toggle('on', u.view === 'playlists' || u.view === 'playlist-detail');
                 links[i].onclick = function() {
-                    u.view = 'playlists'; u.sidesOpen = false; savePos(); renderSidebar(); renderMain();
+                    u.view = 'playlists';
+                    u.sidesOpen = true;
+                    savePos();
+                    drawShell();
                 };
             }
         }
     };
 
     var oldRenderMain = renderMain;
+    var vnr3ViewScroll = {};
+    var vnr3RenderedView = u.view;
+    function rememberV3Scroll(view) {
+        var scroller = main.querySelector('.vnr2-set,.vnr3-track-list');
+        if (scroller) vnr3ViewScroll[view] = scroller.scrollTop || 0;
+    }
+    function restoreV3Scroll(view) {
+        var scroller = main.querySelector('.vnr2-set,.vnr3-track-list');
+        if (!scroller) return;
+        scroller.scrollTop = vnr3ViewScroll[view] || 0;
+        scroller.onscroll = function() { vnr3ViewScroll[view] = scroller.scrollTop || 0; };
+    }
     renderMain = function() {
+        rememberV3Scroll(vnr3RenderedView);
         if (u.view === 'continuous') u.view = 'playlists';
         if (u.view !== 'playlists' && u.view !== 'playlist-detail') {
             oldRenderMain();
             if (u.view === 'artist') augmentArtistShortPersona(main);
+            restoreV3Scroll(u.view);
+            vnr3RenderedView = u.view;
             return;
         }
         main.innerHTML = '';
@@ -949,6 +1046,8 @@
         main.appendChild(status); main.__status = status;
         if (u.view === 'playlists') renderPlaylists(main);
         else renderPlaylistDetail(main);
+        restoreV3Scroll(u.view);
+        vnr3RenderedView = u.view;
     };
 
     var oldRenderBottomBar = renderBottomBar;
@@ -998,6 +1097,8 @@
                 if (u.mode === 'studio') {
                     renderBottomBar();
                     if (/^(playlists|playlist-detail)$/.test(u.view || '')) renderMain();
+                    var scriptBody = stage.querySelector('.vnr3-script-body');
+                    if (scriptBody && typeof scriptBody.__vnr3Refresh === 'function') scriptBody.__vnr3Refresh();
                 }
             } catch (e) {}
         });
