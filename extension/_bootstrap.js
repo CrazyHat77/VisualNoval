@@ -49,7 +49,7 @@
  /* ---------- 默认预装功能 app ---------- */
  function seedApps() {
    var apps = window.__VNM_APPS__ || [];
-   if (!apps.length) return;
+   if (!apps.length) return false;
    var KEY = 'vnm-statusbar-v2', sbS = {};
    try { sbS = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { sbS = {}; }
    if (!Array.isArray(sbS.vnmApps)) sbS.vnmApps = [];
@@ -76,6 +76,7 @@
      ch = true;
    });
    if (ch) { try { localStorage.setItem(KEY, JSON.stringify(sbS)); console.info(LOG, '已同步功能 app'); } catch (e) {} }
+   return ch;
  }
 
   /* ---------- 注入启动器到每条消息(含 /hide 楼层) ---------- */
@@ -271,6 +272,14 @@
     ensureFsRuntime(function (s2) { if (s2) { keepSbAnchored(); s2.style.display = 'flex'; } else toast('功能系统重建中...'); });
     toast('功能系统已重置');
   }
+  function discardStaleFunctionSystem() {
+    // 扩展更新后，旧面板仍持有上一版 app 的内存对象；只删运行时 DOM，
+    // 用户数据仍在 localStorage，下一次打开会按刚同步的新 pageCode 重建。
+    try { var sb = document.getElementById('vnm-statusbar'); if (sb) sb.remove(); } catch (e) {}
+    try { var h = document.getElementById(FS_HOST_ID); if (h) h.remove(); } catch (e) {}
+    try { if (window.__vnmRadioShellEl && window.__vnmRadioShellEl.remove) window.__vnmRadioShellEl.remove(); } catch (e) {}
+    try { window.__vnmRadioShellEl = null; } catch (e) {}
+  }
   function openFunctionSystem() {
     ensureFsRuntime(function (sb) {
       if (!sb) { toast('功能系统正在初始化，请稍候再点'); return; }
@@ -446,7 +455,7 @@
     var wrap = document.createElement('div'); wrap.id = 'vnm-ext-drawer';
     wrap.innerHTML =
       '<div class="inline-drawer"><div class="inline-drawer-toggle inline-drawer-header">' +
-        '<b><span class="fa-solid fa-book-open" style="margin-right:6px"></span>Visual Novel</b>' +
+        '<b><span class="fa-solid fa-book-open" style="margin-right:6px"></span>Visual Novel <small style="opacity:.55;font-weight:400">v' + String(window.__VNM_VERSION__ || '?') + '</small></b>' +
         '<div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div>' +
         '<div class="inline-drawer-content">' +
           '<label class="checkbox_label"><input type="checkbox" id="vnm-cfg-enabled"><span><b>启用 Visual Novel</b>（总开关）</span></label>' +
@@ -666,7 +675,12 @@
  }
 
  function boot() {
-    try { seedApps(); } catch (e) {}
+    var bundledAppsUpdated = false;
+    try { bundledAppsUpdated = seedApps(); } catch (e) {}
+    if (bundledAppsUpdated) {
+      discardStaleFunctionSystem();
+      console.info(LOG, '检测到预装 app 升级，已清理旧常驻实例');
+    }
     try { seedWeatherEffects(); } catch (e) {}
     try { ensureFoldRegex(); } catch (e) {}
     ensureStyle(); applyHideBody();
@@ -686,7 +700,7 @@
     ensureMenuEntry(); ensureSettingsPanel(); ensureDock(); hookEvents(); hookTavernSend();
     setTimeout(runSideEffects, 1500); setInterval(runSideEffects, 4000);
     setTimeout(function(){ try{ ensureFsRuntime(function(){}); }catch(e){} }, 3000);
-    window.VNM_Extension = { open: openLatestFullscreen, openSystem: openFunctionSystem, resetSystem: resetFunctionSystem, injectAll: injectAll };
+    window.VNM_Extension = { version: window.__VNM_VERSION__ || '?', open: openLatestFullscreen, openSystem: openFunctionSystem, resetSystem: resetFunctionSystem, injectAll: injectAll };
     console.info(LOG, '就绪');
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
