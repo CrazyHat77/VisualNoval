@@ -3,10 +3,10 @@
  * It deliberately uses ES5 syntax because the radio runs inside SillyTavern webviews.
  */
 (function vnr3InstallCore() {
-    if (eng.v3 && eng.v3.version >= 3.4) return;
+    if (eng.v3 && eng.v3.version >= 3.5) return;
 
     var v3 = eng.v3 = {
-        version: 3.4,
+        version: 3.5,
         audio: {},
         continuousRuntime: null,
         sleepTimer: null,
@@ -525,6 +525,68 @@
         return mode === 'playlist' ? '歌单模式' : (mode === 'companion' ? '陪伴模式' : '推荐模式');
     };
 
+    var COMPANION_PROMPT_DEFAULT = [
+        '你是专业的私人电台陪伴台本写作者。请让用户选择的主持人以角色本人的身份，共同主持一段可以持续播放的长篇陪伴节目。',
+        '',
+        '【主持人】',
+        '{{主持人列表}}',
+        '',
+        '【主持人角色设定】',
+        '{{角色设定}}',
+        '',
+        '【用户】',
+        '{{用户名称}}',
+        '{{用户设定}}',
+        '',
+        '【角色与世界背景】',
+        '{{世界书}}',
+        '',
+        '【电台专用世界书】',
+        '{{电台世界书}}',
+        '',
+        '【当前剧情上下文】',
+        '{{剧情上下文}}',
+        '',
+        '【酒馆历史】',
+        '{{酒馆历史}}',
+        '',
+        '【Horae 总结】',
+        '{{Horae总结}}',
+        '',
+        '【柏宝书总结】',
+        '{{柏宝书总结}}',
+        '',
+        '【电台聊天总结】',
+        '{{聊天总结}}',
+        '',
+        '【最近主播对话】',
+        '{{最近主播对话}}',
+        '',
+        '【用户本次要求】',
+        '{{用户输入}}',
+        '',
+        '【本次任务】',
+        '创作约 {{目标字数}} 字的连续长篇陪伴台本。主持人要自然地陪伴 {{用户名称}}，可以聊天、讲述、回应用户、分享想法或围绕当前语境展开话题，内容应连贯、耐听，避免机械报幕、空洞寒暄和反复重复相同意思。',
+        '',
+        '如果有多名主持人，他们是共同主持这段节目：可以轮流说话、互相接话、讨论、打趣、补充或回应对方，也可以由一位主导、其他人自然加入。不要固定轮流顺序，不要求每段所有人都发言，但整篇应让适合参与的主持人真正参与交流。每个 speech.host 必须使用【主持人】中出现的名字。',
+        '',
+        '【停顿规则】',
+        '{{停顿数量要求}}',
+        '{{停顿秒数要求}}',
+        'pause 是主持人说完一段内容后留给用户的独立安静时段，不是语气停顿。pause 前后应在内容上自然衔接；播放 pause 时系统会停止请求语音并恢复背景声音，倒计时结束后再继续后面的 speech。',
+        '',
+        '【语言与节点规则】',
+        '1. speech.ttsText 是发送给 TTS 的文本，只能使用 {{朗读语言}}。',
+        '2. speech.displayText 是显示给用户看的文本，只能使用 {{显示语言}}；当显示语言与朗读语言相同时，两者内容可以相同。',
+        '3. speech.host 必须与当前这段话的说话者一致。',
+        '4. 每个 speech 应是一段适合单独请求语音的完整话语，不要把一句话无意义地拆成许多极短节点。',
+        '5. pause 节点只能包含 type 与 seconds，不要给 pause 添加主持人或文本。',
+        '',
+        '【输出要求】',
+        '{{输出格式要求}}',
+        '不要输出 Markdown、代码块、标题、解释或 JSON 之外的任何文字。JSON 中所有字符串必须正确转义并完整闭合。'
+    ].join('\n');
+
     function addFields() {
         var existing = {};
         FIELDS.forEach(function(f) { existing[f.key] = 1; });
@@ -540,7 +602,7 @@
             { group: '提示词', key: 'v3TaskModulePrompt', type: 'textarea-presets', label: '当前任务要求模块', rows: 6, variables: ['{{当前任务要求}}'], default: '请严格执行当前请求模式定义的任务；不要额外推荐用户没有要求的内容。' },
             { group: '提示词', key: 'v3RandomModulePrompt', type: 'textarea-presets', label: '随机播放独立台本模块', rows: 7, variables: ['{{随机播放要求}}'], default: '当前曲目将以随机顺序播放。每首歌曲的台本必须能够独立成立，不得引用上一首或下一首，不得使用“刚才那首”“接下来”“延续前面的话题”等依赖固定顺序的表达。不同歌曲之间不得形成必须按顺序理解的情节、对话或情绪递进。' },
             { group: '提示词', key: 'v3LyricsModulePrompt', type: 'textarea-presets', label: '模型自行检索歌词模块', rows: 6, variables: ['{{歌词检索要求}}'], default: '你可以根据准确的歌名和歌手自行尝试回忆或查找歌词来理解歌曲；如果无法可靠找到，就忽略歌词。禁止编造歌词、伪造歌词内容或假装已经找到。' },
-            { group: '提示词', key: 'v3CompanionModulePrompt', type: 'textarea-presets', label: '陪伴模式连续台本模块', rows: 10, variables: ['{{连续台本要求}}'], default: '写一份与任何歌曲无关的连续陪伴台本。不要提及当前音乐、歌名、歌手、歌词、换歌或歌曲结束。台本由 speech 与 pause 两类节点组成：speech 包含 host、ttsText、displayText；pause 只包含 seconds。停顿是独立的安静时段，不是说话语气。' },
+            { group: '提示词', key: 'v3CompanionPrompt', type: 'textarea-presets', label: '陪伴模式完整提示词', rows: 20, variables: ['{{主持人列表}}', '{{用户名称}}', '{{用户设定}}', '{{角色设定}}', '{{世界书}}', '{{电台世界书}}', '{{剧情上下文}}', '{{酒馆历史}}', '{{Horae总结}}', '{{柏宝书总结}}', '{{聊天总结}}', '{{最近主播对话}}', '{{用户输入}}', '{{目标字数}}', '{{停顿数量要求}}', '{{停顿秒数要求}}', '{{朗读语言}}', '{{显示语言}}', '{{输出格式要求}}'], default: COMPANION_PROMPT_DEFAULT },
             { group: '提示词', key: 'v3RecommendOnlyPrompt', type: 'textarea-presets', label: '只推荐歌曲模块', rows: 8, variables: ['{{只推荐歌曲要求}}'], default: '只推荐真实存在的歌曲，不写台本、不写主持人对白。只返回歌曲 title 与 artist，不要编造 URL。' }
         ];
         list.forEach(function(f) {
@@ -549,8 +611,11 @@
                 if (cfg[f.key] === undefined) cfg[f.key] = f["default"];
             }
         });
-        var moduleBlock = '\n\n【动态任务模块】\n{{当前任务要求}}\n{{随机播放要求}}\n{{歌词检索要求}}\n{{连续台本要求}}\n{{人设注入要求}}\n{{输出格式要求}}';
+        var moduleBlock = '\n\n【动态任务模块】\n{{当前任务要求}}\n{{随机播放要求}}\n{{歌词检索要求}}\n{{输出格式要求}}';
         ['promptTemplate', 'scriptRewritePrompt'].forEach(function(k) {
+            if (cfg[k]) {
+                cfg[k] = cfg[k].replace(/\n?\{\{人设注入要求\}\}/g, '').replace(/\n?\{\{连续台本要求\}\}/g, '');
+            }
             if (cfg[k] && cfg[k].indexOf('{{当前任务要求}}') < 0) cfg[k] += moduleBlock;
         });
         _saveCfg();
@@ -565,15 +630,15 @@
         var random = v3.state.mode === 'playlist' && pl.playMode === 'shuffle' ? (cfg.v3RandomModulePrompt || '') : '';
         var task = extra.taskRequirement || (cfg.v3TaskModulePrompt || '');
         var lyrics = v3.state.mode === 'playlist' ? (cfg.v3LyricsModulePrompt || '') : '';
-        var companion = v3.state.mode === 'companion' ? (cfg.v3CompanionModulePrompt || '') : '';
         var map = {
             '当前任务要求': task,
             '随机播放要求': random,
             '歌词检索要求': lyrics,
-            '连续台本要求': companion,
-            '人设注入要求': bool(cfg.v3ShortPersonaEnabled, false) ? '角色设定使用用户在 Artist 中维护的电台简短人设。' : '',
             '输出格式要求': extra.outputRequirement || '',
-            '只推荐歌曲要求': extra.recommendOnly ? (cfg.v3RecommendOnlyPrompt || '') : ''
+            '只推荐歌曲要求': extra.recommendOnly ? (cfg.v3RecommendOnlyPrompt || '') : '',
+            '目标字数': extra.targetWords || '',
+            '停顿数量要求': extra.pauseCountRequirement || '',
+            '停顿秒数要求': extra.pauseSecondsRequirement || ''
         };
         for (var k in map) if (map.hasOwnProperty(k)) out = out.replace(new RegExp('\\{\\{' + k + '\\}\\}', 'g'), map[k]);
         return out;
@@ -679,7 +744,7 @@
         });
     };
 
-    function companionPauseInstruction() {
+    function companionPauseRules() {
         var minC = Math.max(0, _num(cfg.v3PauseMinCount, 3));
         var maxC = Math.max(0, _num(cfg.v3PauseMaxCount, 8));
         var count;
@@ -687,7 +752,12 @@
         else if (minC) count = '停顿节点数量不少于 ' + minC + ' 个。';
         else if (maxC) count = '停顿节点数量不多于 ' + maxC + ' 个。';
         else count = '停顿节点数量由内容自然决定。';
-        return count + ' 每个 pause.seconds 必须在 ' + Math.max(0, _num(cfg.v3PauseMinSeconds, 5)) + ' 到 ' + Math.max(0, _num(cfg.v3PauseMaxSeconds, 30)) + ' 秒之间。';
+        var minSeconds = Math.max(0, _num(cfg.v3PauseMinSeconds, 5));
+        var maxSeconds = Math.max(0, _num(cfg.v3PauseMaxSeconds, 30));
+        return {
+            count: count,
+            seconds: '每个 pause.seconds 必须在 ' + Math.min(minSeconds, maxSeconds) + ' 到 ' + Math.max(minSeconds, maxSeconds) + ' 秒之间。'
+        };
     }
 
     function parseCompanion(text) {
@@ -721,9 +791,12 @@
         if (!manual && !v3.consumeAutoRequest()) return;
         eng.busy = true;
         var words = Math.max(300, _num(cfg.v3CompanionWords, 3000));
+        var pauseRules = companionPauseRules();
         var output = '{"nodes":[{"type":"speech","host":"主持人名字","ttsText":"发送给TTS的文本","displayText":"显示文本"},{"type":"pause","seconds":15}]}';
-        var prompt = _buildCommon(cfg.promptTemplate || '', {
-            taskRequirement: '请生成约 ' + words + ' 字的连续陪伴台本。' + companionPauseInstruction(),
+        var prompt = _buildCommon(cfg.v3CompanionPrompt || COMPANION_PROMPT_DEFAULT, {
+            targetWords: String(words),
+            pauseCountRequirement: pauseRules.count,
+            pauseSecondsRequirement: pauseRules.seconds,
             outputRequirement: '最终只返回合法 JSON：' + output
         });
         _setApiStatus('loading', 'v3-companion', '请求连续台本', '', '');
