@@ -3,10 +3,10 @@
  * It deliberately uses ES5 syntax because the radio runs inside SillyTavern webviews.
  */
 (function vnr3InstallCore() {
-    if (eng.v3 && eng.v3.version >= 3.3) return;
+    if (eng.v3 && eng.v3.version >= 3.4) return;
 
     var v3 = eng.v3 = {
-        version: 3.3,
+        version: 3.4,
         audio: {},
         continuousRuntime: null,
         sleepTimer: null,
@@ -42,7 +42,7 @@
             title: String(song.title || song.name || song.query || '').trim(),
             artist: String(song.artist || song.author || '').trim(),
             url: String(song.url || '').trim(),
-            cover: String(song.cover || song.pic || song.picture || '').trim(),
+            cover: String(song.cover || song.coverUrl || song.pic || song.picture || '').trim(),
             album: String(song.album || '').trim(),
             source: String(song.source || '').trim(),
             sourceId: String(song.sourceId || song._trackId || '').trim(),
@@ -91,6 +91,47 @@
         sys.system = true;
         sys.name = sys.name || '正在播放';
         if (Object.prototype.toString.call(sys.songs) !== '[object Array]') sys.songs = [];
+        var favorites = null;
+        for (var j = 0; j < st.playlists.length; j++) {
+            if (st.playlists[j] && st.playlists[j].id === 'my-favorites') favorites = st.playlists[j];
+        }
+        if (!favorites) {
+            favorites = {
+                id: 'my-favorites',
+                system: true,
+                favoriteSystem: true,
+                name: '我的收藏',
+                description: '在电台中点击爱心收藏的歌曲',
+                cover: '',
+                coverMode: 'latest',
+                songs: [],
+                order: 1,
+                updatedAt: Date.now(),
+                playMode: 'sequence',
+                autoScripts: false,
+                scriptBatchSize: 30
+            };
+            st.playlists.splice(Math.min(1, st.playlists.length), 0, favorites);
+        }
+        favorites.system = true;
+        favorites.favoriteSystem = true;
+        favorites.name = '我的收藏';
+        var knownCovers = {};
+        st.playlists.forEach(function(pl) {
+            if (!pl || pl.id === 'my-favorites') return;
+            (pl.songs || []).forEach(function(song) {
+                var key = songKey(song);
+                var cover = song && (song.cover || song.coverUrl || song.pic || song.picture);
+                if (key && cover) knownCovers[key] = cover;
+            });
+        });
+        favorites.songs = ((eng.store && eng.store.favoriteSongs) || []).map(function(song) {
+            if (!song.id) song.id = uid('fav');
+            var clean = cleanSong(song);
+            if (!clean.cover) clean.cover = knownCovers[songKey(clean)] || '';
+            return clean;
+        });
+        favorites.updatedAt = Date.now();
         st.mode = /^(recommend|playlist|companion)$/.test(st.mode || '') ? st.mode : 'recommend';
         st.activePlaylistId = st.activePlaylistId || 'now-playing';
         st.shortPersonas = st.shortPersonas || {};
@@ -203,7 +244,7 @@
     };
 
     v3.deletePlaylist = function(id) {
-        if (!id || id === 'now-playing') return false;
+        if (!id || id === 'now-playing' || id === 'my-favorites') return false;
         var arr = v3.playlists();
         for (var i = 0; i < arr.length; i++) {
             if (arr[i] && arr[i].id === id) {

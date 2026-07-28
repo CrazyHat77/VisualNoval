@@ -24,18 +24,19 @@
         '.vnr3-ops,.vnr3-inline-ops{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:15px}.vnr3-inline-ops{justify-content:flex-start}',
         '.vnr3-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0}',
         '.vnr3-toolbar{display:flex;align-items:end;justify-content:space-between;gap:14px;margin:8px 0 18px}.vnr3-title{font-size:20px;font-weight:650}.vnr3-search{max-width:240px}',
-        '.vnr3-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(142px,1fr));gap:18px;align-items:start}',
-        '.vnr3-pl-card{min-width:0;cursor:pointer;border-radius:20px;padding:10px;background:rgba(255,255,255,.035);transition:.18s ease;align-self:start}',
+        '.vnr3-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(142px,1fr));grid-auto-rows:max-content;gap:18px;align-items:start;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;padding-right:7px}',
+        '.vnr3-pl-card{box-sizing:border-box;width:100%;min-width:0;cursor:pointer;border-radius:20px;padding:10px;background:rgba(255,255,255,.035);transition:.18s ease;align-self:start}',
         '.vnr3-pl-card:hover{background:rgba(255,255,255,.08);transform:translateY(-2px)}',
         '.vnr3-pl-cover,.vnr3-add-cover,.vnr3-detail-cover{position:relative;aspect-ratio:1/1;overflow:hidden;border-radius:17px;background:linear-gradient(145deg,rgba(255,255,255,.12),rgba(0,0,0,.15));box-shadow:0 12px 30px rgba(0,0,0,.18)}',
         '.vnr3-pl-cover img,.vnr3-detail-cover img{width:100%;height:100%;object-fit:cover}.vnr3-default-cover{height:100%;display:grid;place-items:center;color:rgba(255,255,255,.52);font-size:34px}',
         '.vnr3-current-chip{position:absolute;left:8px;bottom:8px;padding:4px 7px;border-radius:9px;background:rgba(20,20,22,.7);backdrop-filter:blur(8px);font-size:10px}',
         '.vnr3-card-name{font-weight:620;margin-top:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-        '.vnr3-add-cover{width:100%;height:auto;aspect-ratio:1/1;border:1px dashed rgba(255,255,255,.2);box-shadow:none;font-size:38px;display:grid;place-items:center;color:rgba(255,255,255,.52)}',
+        '.vnr3-add-cover{width:100%;height:auto;aspect-ratio:1/1;border:1px dashed rgba(255,255,255,.2);box-shadow:none;font-size:38px;display:grid;place-items:center;color:rgba(255,255,255,.52)}.vnr3-add-card{min-height:0}',
         '.vnr3-detail-head{display:grid;grid-template-columns:150px 1fr;gap:22px;align-items:end;margin:8px 0 20px}.vnr3-detail-title{font-size:26px;font-weight:680;margin:5px 0}.vnr3-kicker{font-size:10px;letter-spacing:.16em;opacity:.52}',
+        '.vnr3-detail-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;padding-right:7px;scrollbar-width:thin}.vnr3-detail-scroll::-webkit-scrollbar{width:6px}.vnr3-detail-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:999px}.vnr3-select-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.vnr3-select-actions{display:flex;gap:7px;flex-wrap:wrap}',
         '.vnr3-song-list,.vnr3-node-list{display:grid;gap:7px}.vnr3-song-row,.vnr3-node,.vnr3-persona{border:1px solid rgba(255,255,255,.08);border-radius:17px;background:rgba(255,255,255,.035);padding:12px}',
         '.vnr3-song-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px}.vnr3-song-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-        '.vnr3-track-list{display:grid;gap:7px;align-content:start;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;padding-right:5px;scrollbar-width:thin}.vnr3-track-list::-webkit-scrollbar,.vnr3-script-body::-webkit-scrollbar{width:5px}.vnr3-track-list::-webkit-scrollbar-thumb,.vnr3-script-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);border-radius:999px}.vnr3-track{display:grid;grid-template-columns:26px 42px minmax(0,1fr) auto auto;align-items:center;gap:10px;border-radius:16px;padding:8px;background:rgba(255,255,255,.035)}',
+        '.vnr3-track-list{display:grid;gap:7px;align-content:start;overflow:visible;margin-top:10px}.vnr3-script-body::-webkit-scrollbar{width:5px}.vnr3-script-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);border-radius:999px}.vnr3-track{display:grid;grid-template-columns:26px 42px minmax(0,1fr) auto auto auto;align-items:center;gap:10px;border-radius:16px;padding:8px;background:rgba(255,255,255,.035)}',
         '.vnr3-check{width:20px;height:20px;border:1px solid rgba(255,255,255,.2);border-radius:7px;background:transparent}.vnr3-check.on:after{content:"✓";color:#eee}.vnr3-track-pic{width:42px;height:42px;border-radius:11px;overflow:hidden;display:grid;place-items:center;background:rgba(255,255,255,.08)}.vnr3-track-pic img{width:100%;height:100%;object-fit:cover}.vnr3-track-title,.vnr3-track-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vnr3-track-sub{opacity:.55;font-size:11px}',
         '.vnr3-speech-node,.vnr3-pause-node{border:1px solid rgba(255,255,255,.08);border-radius:17px;background:rgba(255,255,255,.035);padding:12px}.vnr3-pause-node{display:flex;align-items:center;justify-content:center;gap:10px;border-style:dashed}.vnr3-pause-input{width:70px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(0,0,0,.15);color:inherit;padding:8px}.vnr3-node-ops{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}',
         '.vnr3-node-head,.vnr3-persona-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}',
@@ -45,7 +46,7 @@
         '.vnr3-status-error{opacity:.55;text-decoration:line-through}.vnr3-persona{margin:12px 0}.vnr3-persona textarea{min-height:110px}',
         '.vnr3-script-layer{position:absolute;inset:34px 390px 82px;z-index:40;pointer-events:auto;display:flex;align-items:stretch;justify-content:center}.vnr3-script-window{width:100%;min-width:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(255,255,255,.14);border-radius:28px;background:rgba(34,37,44,.96);box-shadow:0 28px 90px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.09);backdrop-filter:blur(34px);-webkit-backdrop-filter:blur(34px)}',
         '.vnr3-script-window-head{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,.08)}.vnr3-script-window-title{font-size:20px;font-weight:680}.vnr3-script-window-sub{font-size:11px;opacity:.5;margin-top:3px}.vnr3-script-close{width:38px;height:38px;flex:0 0 38px;border:1px solid rgba(255,255,255,.12);border-radius:50%;background:rgba(255,255,255,.07);color:inherit;font-size:23px;cursor:pointer}.vnr3-script-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;padding:18px 20px 24px;user-select:text}.vnr3-script-body .vnr3-cont-head{padding:0 0 12px}.vnr3-script-body .vnr3-speech-node{background:rgba(255,255,255,.045);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}',
-        '@media(max-width:720px){.vnr3-shade{align-items:flex-end;padding:0}.vnr3-modal{width:100%;max-height:88vh;border-radius:26px 26px 0 0;padding:18px 16px 24px}.vnr3-toolbar{align-items:stretch;flex-direction:column}.vnr3-search{max-width:none}.vnr3-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.vnr3-detail-head{grid-template-columns:94px 1fr;gap:14px;align-items:center}.vnr3-detail-title{font-size:20px}.vnr3-inline-ops{grid-column:1/-1}.vnr3-song-row{grid-template-columns:minmax(0,1fr)}.vnr3-track{grid-template-columns:24px 38px minmax(0,1fr) auto}.vnr3-track>.vnr3-state{display:none}.vnr3-script-layer{inset:26px 358px 76px}.vnr3-script-window{border-radius:24px}}'
+        '@media(max-width:720px){.vnr3-shade{align-items:flex-end;padding:0}.vnr3-modal{width:100%;max-height:88vh;border-radius:26px 26px 0 0;padding:18px 16px 24px}.vnr3-toolbar{align-items:stretch;flex-direction:column}.vnr3-search{max-width:none}.vnr3-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.vnr3-detail-head{grid-template-columns:94px 1fr;gap:14px;align-items:center}.vnr3-detail-title{font-size:20px}.vnr3-inline-ops{grid-column:1/-1}.vnr3-song-row{grid-template-columns:minmax(0,1fr)}.vnr3-track{grid-template-columns:24px 38px minmax(0,1fr) auto auto}.vnr3-track>.vnr3-state{display:none}.vnr3-script-layer{inset:26px 358px 76px}.vnr3-script-window{border-radius:24px}}'
     ].join('');
 
     if (!eng.__v3RequestWrapped) {
@@ -62,7 +63,7 @@
         eng.next = function() {
             var pl = v3.currentPlaylist();
             var sleep = v3.state.sleep;
-            if (eng.running && !(eng.queue || []).length && pl && !pl.system) {
+            if (eng.running && !(eng.queue || []).length && pl && (!pl.system || pl.favoriteSystem)) {
                 var shouldLoop = pl.playMode === 'repeat' || pl.playMode === 'repeat-one' ||
                     (sleep && sleep.active && sleep.loopExisting && !sleep.expired);
                 if (pl.playMode === 'repeat-one' && eng.current && shouldLoop) {
@@ -105,6 +106,38 @@
         }
         return vnr3BaseFetchPic(song, cb);
     };
+    if (!eng.__v3FavoriteMediaWrapped) {
+        eng.__v3FavoriteMediaWrapped = true;
+        function keepFavoriteMedia(song) {
+            var favorite = _favByKey(_songKey(song));
+            if (!favorite) return;
+            favorite.cover = song.cover || song.coverUrl || song.pic || song.picture || favorite.cover || '';
+            favorite.coverUrl = favorite.cover;
+            favorite.album = song.album || favorite.album || '';
+            favorite.source = song.source || favorite.source || '';
+            favorite._trackId = song._trackId || song.sourceId || favorite._trackId || '';
+            favorite.id = favorite.id || song.id || ('fav-' + Date.now() + '-' + Math.floor(Math.random() * 100000));
+        }
+        var vnr3BaseToggleFav = eng.toggleFav;
+        eng.toggleFav = function(song, say) {
+            vnr3BaseToggleFav.call(eng, song, say);
+            keepFavoriteMedia(song || {});
+            eng.saveStore();
+            v3.uiRefresh();
+        };
+        var vnr3BaseAddFav = eng.addFav;
+        eng.addFav = function(song, say) {
+            vnr3BaseAddFav.call(eng, song, say);
+            keepFavoriteMedia(song || {});
+            eng.saveStore();
+            v3.uiRefresh();
+        };
+        var vnr3BaseRemoveFav = eng.removeFav;
+        eng.removeFav = function(song) {
+            vnr3BaseRemoveFav.call(eng, song);
+            v3.uiRefresh();
+        };
+    }
     function button(text, fn, cls) {
         var b = E('button', 'vnr3-btn' + (cls ? ' ' + cls : ''), text);
         b.type = 'button';
@@ -347,7 +380,7 @@
     }
 
     function playPlaylist(pl) {
-        if (pl.system) {
+        if (pl.id === 'now-playing') {
             v3.setMode('playlist');
             eng.playPause();
             return;
@@ -372,9 +405,14 @@
         function paint() {
             grid.innerHTML = '';
             var q = String(search.value || '').toLowerCase();
+            function playlistRank(pl) {
+                if (pl.id === 'now-playing') return 0;
+                if (pl.id === 'my-favorites') return 1;
+                return 2;
+            }
             var list = v3.playlists().slice().sort(function(a, b) {
-                if (a.system) return -1;
-                if (b.system) return 1;
+                var ar = playlistRank(a), br = playlistRank(b);
+                if (ar !== br) return ar - br;
                 return (a.order || 0) - (b.order || 0);
             });
             list.forEach(function(pl) {
@@ -385,20 +423,22 @@
                 if (src) {
                     var img = E('img', ''); img.src = src; cover.appendChild(img);
                 } else cover.appendChild(V('vnr3-default-cover', '♫'));
-                if (pl.system) cover.appendChild(V('vnr3-current-chip', '当前'));
+                if (pl.id === 'now-playing') cover.appendChild(V('vnr3-current-chip', '当前'));
+                if (pl.id === 'my-favorites') cover.appendChild(V('vnr3-current-chip', '收藏'));
                 card.appendChild(cover);
                 card.appendChild(V('vnr3-card-name', pl.name || '未命名歌单'));
-                var count = pl.system ? v3.nowSongs().length : (pl.songs || []).length;
+                var count = pl.id === 'now-playing' ? v3.nowSongs().length : (pl.songs || []).length;
                 card.appendChild(V('vnr3-card-sub', count + ' 首歌曲'));
                 card.onclick = function() {
                     u.v3PlaylistId = pl.id; v3.state.activePlaylistId = pl.id;
+                    u.plFav = false;
                     u.v3ShowScript = false;
                     u.view = 'playlist-detail'; v3.save(); savePos(); renderMain();
                 };
                 grid.appendChild(card);
             });
-            var add = V('vnr3-pl-card add');
-            add.appendChild(V('vnr3-add-cover', '+'));
+            var add = V('vnr3-pl-card vnr3-add-card');
+            add.appendChild(V('vnr3-pl-cover vnr3-add-cover', '+'));
             add.appendChild(V('vnr3-card-name', '新建歌单'));
             add.appendChild(V('vnr3-card-sub', '添加一个本地歌单'));
             add.onclick = openCreatePlaylist;
@@ -478,7 +518,9 @@
     function renderPlaylistDetail(box) {
         var pl = v3.playlist(u.v3PlaylistId || v3.state.activePlaylistId) || v3.playlist('now-playing');
         v3.state.activePlaylistId = pl.id;
-        var songs = pl.system ? v3.nowSongs() : (pl.songs || []);
+        var isNowPlaying = pl.id === 'now-playing';
+        var isFavorites = pl.id === 'my-favorites';
+        var songs = isNowPlaying ? v3.nowSongs() : (pl.songs || []);
         var head = V('vnr3-detail-head');
         var cover = V('vnr3-detail-cover');
         var src = playlistCover(pl);
@@ -486,21 +528,36 @@
         else cover.appendChild(V('vnr3-default-cover', '♫'));
         head.appendChild(cover);
         var info = V('vnr3-detail-info');
-        info.appendChild(V('vnr3-kicker', pl.system ? 'CURRENT PLAYLIST' : 'PLAYLIST'));
+        info.appendChild(V('vnr3-kicker', isNowPlaying ? 'CURRENT PLAYLIST' : (isFavorites ? 'FAVORITES' : 'PLAYLIST')));
         info.appendChild(V('vnr3-detail-title', pl.name));
         info.appendChild(V('vnr3-detail-sub', songs.length + ' 首歌曲' + (pl.description ? ' · ' + pl.description : '')));
         var ops = V('vnr3-inline-ops');
         ops.appendChild(button('播放', function() { playPlaylist(pl); }, 'primary'));
-        if (!pl.system) {
+        if (!isNowPlaying && !isFavorites) {
             ops.appendChild(button('导入歌单', function() { openImport(pl); }));
             ops.appendChild(button('添加歌曲', function() { openManualAdd(pl); }));
         }
-        ops.appendChild(button('设置', function() { openPlaylistSettings(pl); }));
+        if (!isFavorites) ops.appendChild(button('设置', function() { openPlaylistSettings(pl); }));
         ops.appendChild(button('查看 / 编辑完整台本', function() { openContinuousPanel(pl); }));
         info.appendChild(ops); head.appendChild(info); box.appendChild(head);
         var bulk = V('vnr3-bulk');
         var selected = {};
-        bulk.appendChild(V('', '选择歌曲后可复制、移动、删除或请求台本'));
+        var list = V('vnr3-track-list');
+        var selectionHead = V('vnr3-select-head');
+        var selectionHint = V('', '已选择 0 / ' + songs.length + ' 首');
+        var selectionActions = V('vnr3-select-actions');
+        selectionActions.appendChild(button('全选', function() {
+            songs.forEach(function(song) { selected[song.id] = true; });
+            paintChecks();
+        }));
+        selectionActions.appendChild(button('取消全选', function() {
+            selected = {};
+            paintChecks();
+        }));
+        selectionHead.appendChild(selectionHint);
+        selectionHead.appendChild(selectionActions);
+        bulk.appendChild(selectionHead);
+        bulk.appendChild(V('vnr3-hint', '勾选后可复制、移动、删除或请求台本'));
         var bulkOps = V('vnr3-inline-ops');
         function selectedSongs() {
             return songs.filter(function(s) { return selected[s.id]; });
@@ -509,6 +566,7 @@
             [].slice.call(list.querySelectorAll('.vnr3-check[data-song-id]')).forEach(function(check) {
                 check.classList.toggle('on', !!selected[check.dataset.songId]);
             });
+            selectionHint.textContent = '已选择 ' + selectedSongs().length + ' / ' + songs.length + ' 首';
         }
         function chooseTarget(move) {
             var picked = selectedSongs();
@@ -518,41 +576,39 @@
             choice(move ? '移动到歌单' : '复制到歌单', targets.map(function(target) {
                 return { label: target.name, note: (target.songs || []).length + ' 首', action: function() {
                     var r;
-                    if (pl.system) {
+                    if (isNowPlaying) {
                         r = v3.addSongs(target.id, picked, false);
                         if (move) picked.forEach(function(song) {
                             var items = (eng.current ? [eng.current] : []).concat(eng.queue || []);
                             items.forEach(function(it) { if (it.id === song.queueItemId) eng.removeItem(it); });
                         });
+                    } else if (isFavorites) {
+                        r = v3.addSongs(target.id, picked, false);
+                        if (move) picked.forEach(function(song) { eng.removeFav(song); });
                     } else r = v3.copySongs(pl.id, picked.map(function(s) { return s.id; }), target.id, move);
                     _toast((move ? '已移动 ' : '已复制 ') + r.added + ' 首，跳过重复 ' + r.duplicate + ' 首');
                     renderMain();
                 } };
             }));
         }
-        bulkOps.appendChild(button('全选', function() {
-            songs.forEach(function(song) { selected[song.id] = true; });
-            paintChecks();
-        }));
-        bulkOps.appendChild(button('取消全选', function() {
-            selected = {};
-            paintChecks();
-        }));
         bulkOps.appendChild(button('复制到…', function() { chooseTarget(false); }));
         bulkOps.appendChild(button('移动到…', function() { chooseTarget(true); }));
         bulkOps.appendChild(button('删除', function() {
             var picked = selectedSongs();
             if (!picked.length) { _toast('请先勾选歌曲'); return; }
-            confirmAction('删除已选的 ' + picked.length + ' 首歌曲？', pl.system ? '只会从当前播放队列移除已选歌曲。' : '只会从这个歌单移除已选歌曲，不影响其他歌单中的同名歌曲。', function() {
-                if (pl.system) picked.forEach(function(song) {
+            var deleteNote = isNowPlaying ? '只会从当前播放队列移除已选歌曲。' :
+                (isFavorites ? '会将已选歌曲移出“我的收藏”，不会删除其他歌单中的歌曲。' : '只会从这个歌单移除已选歌曲，不影响其他歌单中的同名歌曲。');
+            confirmAction('删除已选的 ' + picked.length + ' 首歌曲？', deleteNote, function() {
+                if (isNowPlaying) picked.forEach(function(song) {
                     var items = (eng.current ? [eng.current] : []).concat(eng.queue || []);
                     items.forEach(function(it) { if (it.id === song.queueItemId) eng.removeItem(it); });
                 });
+                else if (isFavorites) picked.forEach(function(song) { eng.removeFav(song); });
                 else v3.removeSongs(pl.id, picked.map(function(s) { return s.id; }));
                 renderMain();
             });
         }, 'danger'));
-        if (pl.system) bulkOps.appendChild(button('请求勾选台本', function() {
+        if (isNowPlaying) bulkOps.appendChild(button('请求勾选台本', function() {
             var ids = selectedSongs().map(function(s) { return s.queueItemId; });
             if (!ids.length) { _toast('请先勾选歌曲'); return; }
             v3.requestLinkedScripts(true, ids);
@@ -562,20 +618,19 @@
             openRecommend(ref, pl);
         });
         bulkOps.appendChild(recommend);
-        if (!pl.system) bulkOps.appendChild(button('清空歌单', function() {
+        if (!isNowPlaying && !isFavorites) bulkOps.appendChild(button('清空歌单', function() {
             confirmAction('清空“' + pl.name + '”？', '歌单会保留，但其中歌曲将全部移除。', function() {
                 pl.songs = []; v3.save(); renderMain();
             });
         }, 'danger'));
         bulk.appendChild(bulkOps); box.appendChild(bulk);
-        var list = V('vnr3-track-list');
         if (!songs.length) list.appendChild(V('vnr2-empty', '这个歌单还没有歌曲。'));
         songs.forEach(function(song, index) {
             var row = V('vnr3-track');
             var ck = E('button', 'vnr3-check'); ck.type = 'button'; ck.textContent = '';
             ck.dataset.songId = song.id;
             ck.title = '选择“' + (song.title || '这首歌曲') + '”';
-            ck.onclick = function() { selected[song.id] = !selected[song.id]; ck.classList.toggle('on', !!selected[song.id]); };
+            ck.onclick = function() { selected[song.id] = !selected[song.id]; paintChecks(); };
             row.appendChild(ck);
             var pic = V('vnr3-track-pic');
             if (song.cover) { var im = E('img', ''); im.src = song.cover; pic.appendChild(im); } else pic.textContent = '♫';
@@ -585,16 +640,24 @@
             tx.appendChild(V('vnr3-track-sub', song.artist || '未填写歌手'));
             row.appendChild(tx);
             if (song.pendingMatch || song.matchError) row.appendChild(V('vnr3-state', '待匹配'));
+            var favoriteButton = button('', function() {
+                eng.toggleFav(song, song.say || '');
+                renderMain();
+            }, 'icon');
+            favoriteButton.title = _isFav(song) ? '移出我的收藏' : '收入我的收藏';
+            favoriteButton.innerHTML = icon2(_isFav(song) ? 'heartF' : 'heart');
+            row.appendChild(favoriteButton);
             row.appendChild(button('•••', function() {
                 choice(song.title || '歌曲操作', [
-                    { label: '编辑歌曲', action: function() { if (!pl.system) openSongEditor(pl, song); } },
+                    { label: '编辑歌曲', action: function() { if (!isNowPlaying && !isFavorites) openSongEditor(pl, song); } },
                     { label: '立即播放', action: function() { eng.queueSong(song, true); } },
                     { label: '加入正在播放', action: function() { eng.queueSong(song, false); } },
                     { label: '删除', action: function() {
-                        if (pl.system) {
+                        if (isNowPlaying) {
                             var items = (eng.current ? [eng.current] : []).concat(eng.queue || []);
                             items.forEach(function(it) { if (it.id === song.queueItemId) eng.removeItem(it); });
-                        } else v3.removeSongs(pl.id, [song.id]);
+                        } else if (isFavorites) eng.removeFav(song);
+                        else v3.removeSongs(pl.id, [song.id]);
                         renderMain();
                     } }
                 ]);
@@ -602,7 +665,7 @@
             list.appendChild(row);
         });
         box.appendChild(list);
-        if (!pl.system) box.appendChild(button('＋ 添加一首歌曲', function() { openSongEditor(pl, null); }, 'vnr3-wide-add'));
+        if (!isNowPlaying && !isFavorites) box.appendChild(button('＋ 添加一首歌曲', function() { openSongEditor(pl, null); }, 'vnr3-wide-add'));
     }
 
     function openRecommend(refSongs, targetPl) {
@@ -1004,6 +1067,23 @@
                 links[i].onclick = function() {
                     u.view = 'playlists';
                     u.sidesOpen = true;
+                    u.plFav = false;
+                    savePos();
+                    drawShell();
+                };
+            }
+            if ((links[i].textContent || '').indexOf('Favorites') >= 0 || (links[i].textContent || '').indexOf('我的收藏') >= 0) {
+                var favoriteLink = links[i];
+                var favoriteLabel = favoriteLink.querySelector('span');
+                if (favoriteLabel) favoriteLabel.textContent = '我的收藏 · ' + ((eng.store.favoriteSongs || []).length);
+                favoriteLink.classList.toggle('on', u.view === 'playlist-detail' && u.v3PlaylistId === 'my-favorites');
+                favoriteLink.onclick = function() {
+                    u.sidesOpen = true;
+                    u.plFav = false;
+                    u.v3PlaylistId = 'my-favorites';
+                    v3.state.activePlaylistId = 'my-favorites';
+                    u.view = 'playlist-detail';
+                    v3.save();
                     savePos();
                     drawShell();
                 };
@@ -1012,17 +1092,20 @@
     };
 
     var oldRenderMain = renderMain;
-    var vnr3ViewScroll = {};
+    var vnr3ViewScroll = u.vnr3ViewScroll || (u.vnr3ViewScroll = {});
     var vnr3RenderedView = u.view;
     function rememberV3Scroll(view) {
-        var scroller = main.querySelector('.vnr2-set,.vnr3-track-list');
+        var scroller = main.querySelector('.vnr2-set,.vnr3-detail-scroll,.vnr3-grid');
         if (scroller) vnr3ViewScroll[view] = scroller.scrollTop || 0;
     }
     function restoreV3Scroll(view) {
-        var scroller = main.querySelector('.vnr2-set,.vnr3-track-list');
+        var scroller = main.querySelector('.vnr2-set,.vnr3-detail-scroll,.vnr3-grid');
         if (!scroller) return;
         scroller.scrollTop = vnr3ViewScroll[view] || 0;
         scroller.onscroll = function() { vnr3ViewScroll[view] = scroller.scrollTop || 0; };
+        TOP.requestAnimationFrame(function() {
+            if (scroller.isConnected) scroller.scrollTop = vnr3ViewScroll[view] || 0;
+        });
     }
     renderMain = function() {
         rememberV3Scroll(vnr3RenderedView);
@@ -1045,7 +1128,13 @@
         var status = V('vnr2-status-row', statusText() + ' · ' + songTitle(curSong()));
         main.appendChild(status); main.__status = status;
         if (u.view === 'playlists') renderPlaylists(main);
-        else renderPlaylistDetail(main);
+        else {
+            var detailScroll = V('vnr3-detail-scroll');
+            detailScroll.addEventListener('wheel', function(e) { e.stopPropagation(); }, { passive: true });
+            detailScroll.addEventListener('touchmove', function(e) { e.stopPropagation(); }, { passive: true });
+            main.appendChild(detailScroll);
+            renderPlaylistDetail(detailScroll);
+        }
         restoreV3Scroll(u.view);
         vnr3RenderedView = u.view;
     };
