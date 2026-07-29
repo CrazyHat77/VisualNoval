@@ -84,7 +84,7 @@ page = page.replace(uiAnchor, function() {
 });
 
 data.pageCode = page;
-data.version = '3.9.2-optional-radio-history';
-data.description = '多主持人私人电台 · 可关闭最近主播对话注入 · 请求路由与返回解析诊断 · 主持人话轮语音缓存';
+data.version = '3.9.3-filter-script-history';
+data.description = '多主持人私人电台 · 可过滤历史台本并保留主动聊天 · 请求路由/API/解析绑定诊断 · 主持人话轮语音缓存';
 fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2) + '\n');
 console.log('[build-radio-v3] injected core/UI into', jsonPath);

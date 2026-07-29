@@ -3,10 +3,10 @@
  * It deliberately uses ES5 syntax because the radio runs inside SillyTavern webviews.
  */
 (function vnr3InstallCore() {
-    if (eng.v3 && eng.v3.version >= 3.92) return;
+    if (eng.v3 && eng.v3.version >= 3.93) return;
 
     var v3 = eng.v3 = {
-        version: 3.92,
+        version: 3.93,
         audio: {},
         continuousRuntime: null,
         sleepTimer: null,
@@ -708,7 +708,6 @@
         '【当前剧情上下文】',
         '{{剧情上下文}}',
         '',
-        '【电台聊天总结】',
         '{{聊天总结}}',
         '',
         '{{最近主播对话}}',
@@ -747,7 +746,7 @@
         });
         var list = [
             { group: '请求模式', key: 'v3ShortPersonaEnabled', type: 'toggle', label: '使用 Artist 中设置的电台简短人设', default: false },
-            { group: '请求模式', key: 'v3OmitRecentHostTalk', type: 'toggle', label: '不发送电台前文（最近主播对话）', default: false },
+            { group: '请求模式', key: 'v3OmitRecentHostTalk', type: 'toggle', label: '不发送历史台本（保留主动聊天）', default: false },
             { group: '请求模式', key: 'v3CompanionAutoRequest', type: 'toggle', label: '自动请求新台本（陪伴模式）', default: true },
             { group: '请求模式', key: 'v3CompanionWords', type: 'number', label: '陪伴模式目标字数', default: 3000, min: 300, max: 20000, step: 100 },
             { group: '请求模式', key: 'v3PauseMinCount', type: 'number', label: '连续台本最少停顿节点', default: 3, min: 0, max: 100 },
@@ -793,28 +792,95 @@
         function normalizeRecentTalkSlot(text) {
             return String(text || '').replace(/【最近主播对话】\s*\{\{最近主播对话\}\}/g, '{{最近主播对话}}');
         }
+        function normalizeChatSummarySlot(text) {
+            return String(text || '').replace(/【电台聊天总结】\s*\{\{聊天总结\}\}/g, '{{聊天总结}}');
+        }
         FIELDS.forEach(function(fieldDef) {
             if (!fieldDef) return;
-            if (typeof fieldDef["default"] === 'string' && fieldDef["default"].indexOf('{{最近主播对话}}') >= 0) {
-                fieldDef["default"] = normalizeRecentTalkSlot(fieldDef["default"]);
+            if (typeof fieldDef["default"] === 'string') {
+                if (fieldDef["default"].indexOf('{{最近主播对话}}') >= 0) fieldDef["default"] = normalizeRecentTalkSlot(fieldDef["default"]);
+                if (fieldDef["default"].indexOf('{{聊天总结}}') >= 0) fieldDef["default"] = normalizeChatSummarySlot(fieldDef["default"]);
             }
-            if (fieldDef.key && typeof cfg[fieldDef.key] === 'string' && cfg[fieldDef.key].indexOf('{{最近主播对话}}') >= 0) {
-                cfg[fieldDef.key] = normalizeRecentTalkSlot(cfg[fieldDef.key]);
+            if (fieldDef.key && typeof cfg[fieldDef.key] === 'string') {
+                if (cfg[fieldDef.key].indexOf('{{最近主播对话}}') >= 0) cfg[fieldDef.key] = normalizeRecentTalkSlot(cfg[fieldDef.key]);
+                if (cfg[fieldDef.key].indexOf('{{聊天总结}}') >= 0) cfg[fieldDef.key] = normalizeChatSummarySlot(cfg[fieldDef.key]);
             }
         });
         _saveCfg();
     }
     addFields();
 
+    function isAutomaticScriptHistory(message) {
+        return !!(message && (message.kind === 'script' || message.scriptId));
+    }
+
+    function radioHistoryContextStats() {
+        var history = (eng.store && eng.store.chatHistory) || [];
+        var scriptCount = 0, proactiveCount = 0;
+        history.forEach(function(message) {
+            if (isAutomaticScriptHistory(message)) scriptCount++;
+            else proactiveCount++;
+        });
+        return {
+            totalMessages: history.length,
+            automaticScriptMessages: scriptCount,
+            proactiveChatMessages: proactiveCount,
+            filterAutomaticScripts: bool(cfg.v3OmitRecentHostTalk, false),
+            mixedSummaryOmitted: bool(cfg.v3OmitRecentHostTalk, false) && !!(eng.store && eng.store.chatSummary)
+        };
+    }
+
     _recentRadioTalk = function(limit) {
-        if (bool(cfg.v3OmitRecentHostTalk, false)) return '';
         limit = _num(limit, cfg.recommendChatMessages === undefined ? 6 : cfg.recommendChatMessages);
         var history = (eng.store && eng.store.chatHistory) || [];
+        if (bool(cfg.v3OmitRecentHostTalk, false)) {
+            history = history.filter(function(message) {
+                return !isAutomaticScriptHistory(message);
+            });
+        }
         if (!history.length || limit <= 0) return '';
         var body = history.slice(-limit).map(function(message) {
             return (message.role === 'user' ? '用户' : '主播') + ': ' + (message.display || message.content || '');
         }).filter(function(line) { return !!String(line || '').trim(); }).join('\n');
         return body ? '【最近主播对话】\n' + body : '';
+    };
+
+    function radioChatSummaryBlock() {
+        /* 旧 chatSummary 是由全部 chatHistory 混合生成，无法可靠区分台本与主动聊天。
+           严格过滤打开时只允许使用独立维护的主动聊天记录。 */
+        var strict = bool(cfg.v3OmitRecentHostTalk, false);
+        var summary = String(eng.store && (strict ? eng.store.proactiveChatSummary : eng.store.chatSummary) || '').trim();
+        return summary ? '【电台聊天总结】\n' + summary : '';
+    }
+
+    /* 基础版会在聊天过长时压缩并删除旧消息。压缩前，把其中尚未记录过的
+       用户主动消息及对应 API 回复单独保存，自动播放台本永远不进入这里。 */
+    var maybeSummarizeChatWithMixedHistory = _maybeSummarizeChat;
+    _maybeSummarizeChat = function() {
+        try {
+            var recentCount = _num(cfg.chatRecentMessages, 10);
+            var summaryBatch = _num(cfg.chatSummaryBatch, 40);
+            var history = (eng.store && eng.store.chatHistory) || [];
+            if (history.length > recentCount + summaryBatch) {
+                var old = history.slice(0, history.length - recentCount);
+                var captured = old.filter(function(message) {
+                    return !isAutomaticScriptHistory(message) && !message.v3ProactiveSummaryCaptured;
+                });
+                if (captured.length) {
+                    var added = captured.map(function(message) {
+                        message.v3ProactiveSummaryCaptured = true;
+                        return (message.role === 'user' ? '用户' : '主播') + ': ' + (message.display || message.content || '');
+                    }).filter(function(line) {
+                        return !!String(line || '').trim();
+                    }).join('\n');
+                    var previous = String(eng.store.proactiveChatSummary || '').trim();
+                    var combined = [previous, added].filter(Boolean).join('\n');
+                    eng.store.proactiveChatSummary = combined.slice(-12000);
+                    eng.saveStore();
+                }
+            }
+        } catch (captureError) {}
+        return maybeSummarizeChatWithMixedHistory.apply(this, arguments);
     };
 
     if (eng.request && !eng.request.__vnrRouteDebugWrapped) {
@@ -861,7 +927,10 @@
     var oldBuildCommon = _buildCommon;
     _buildCommon = function(tpl, extra) {
         extra = extra || {};
-        var out = oldBuildCommon(tpl, extra);
+        var summarySlot = '__VNM_RADIO_CHAT_SUMMARY_BLOCK__';
+        var preparedTpl = String(tpl || '').replace(/\{\{聊天总结\}\}/g, summarySlot);
+        var out = oldBuildCommon(preparedTpl, extra);
+        out = out.split(summarySlot).join(radioChatSummaryBlock());
         var pl = v3.currentPlaylist() || {};
         var random = v3.state.mode === 'playlist' && pl.playMode === 'shuffle' ? (cfg.v3RandomModulePrompt || '') : '';
         var task = extra.taskRequirement || (cfg.v3TaskModulePrompt || '');
@@ -1032,9 +1101,20 @@
 
     function recordCompanionDebug(debug) {
         debug = debug || {};
+        if (!debug.route) debug.route = eng.lastApiRoute || null;
+        if (debug.source !== 'request-start' && !debug.apiSnapshot && eng.lastApiDebug) {
+            try { debug.apiSnapshot = JSON.parse(JSON.stringify(eng.lastApiDebug)); } catch (eApi) {}
+        }
         debug.recordedAt = new Date().toISOString();
         try { TOP.__vnmRadioLastCompanionDebug = debug; } catch (e) {}
         try { TOP.localStorage.setItem('vnm-radio-last-companion-debug', JSON.stringify(debug)); } catch (e2) {}
+        try {
+            TOP.localStorage.setItem('vnm-radio-last-companion-bundle', JSON.stringify({
+                route: debug.route || null,
+                api: debug.apiSnapshot || null,
+                parser: debug
+            }));
+        } catch (e3) {}
         return debug;
     }
 
@@ -1138,9 +1218,16 @@
         var api = TOP.__vnmRadioLastApi || null;
         var parser = TOP.__vnmRadioLastCompanionDebug || null;
         var route = TOP.__vnmRadioLastRoute || null;
+        var bundle = null;
+        try { bundle = JSON.parse(TOP.localStorage.getItem('vnm-radio-last-companion-bundle') || 'null'); } catch (eBundle) {}
         try { if (!api) api = JSON.parse(TOP.localStorage.getItem('vnm-radio-last-api-debug') || 'null'); } catch (e) {}
         try { if (!parser) parser = JSON.parse(TOP.localStorage.getItem('vnm-radio-last-companion-debug') || 'null'); } catch (e2) {}
         try { if (!route) route = JSON.parse(TOP.localStorage.getItem('vnm-radio-last-route-debug') || 'null'); } catch (eRoute) {}
+        if (bundle && bundle.parser) parser = bundle.parser;
+        if (bundle && bundle.api) api = bundle.api;
+        else if (!api && parser && parser.apiSnapshot) api = parser.apiSnapshot;
+        if (bundle && bundle.route) route = bundle.route;
+        else if (!route && parser && parser.route) route = parser.route;
         var response = null, content = parser && parser.content || '';
         try {
             response = api && api.responseText ? JSON.parse(api.responseText) : null;
@@ -1175,10 +1262,26 @@
         } else if (parser && parser.failureReason) {
             formatDiagnosis = parser.failureReason;
         }
-        var report = {
-            conclusion: api && api.httpStatus === 200 && choice.finish_reason === 'stop' ?
+        var historyStats = radioHistoryContextStats();
+        var noStoredRequest = !api && !route && (!parser || parser.source === 'request-start');
+        var conclusion = noStoredRequest ?
+            '当前页面没有找到已完成的陪伴请求诊断记录。请刷新到新版后重新请求一次；新版会把路由、HTTP 原文和解析结果绑定保存。' :
+            (api && api.httpStatus === 200 && choice.finish_reason === 'stop' ?
                 ('API 正常完整返回。' + (formatDiagnosis ? ' ' + formatDiagnosis : '若应用仍报失败，请重点看 parser.failureReason / ignoredNodes。')) :
-                '请结合 HTTP 状态、finish_reason、providerError 与 parser.failureReason 判断。',
+                '请结合 HTTP 状态、finish_reason、providerError 与 parser.failureReason 判断。');
+        var report = {
+            conclusion: conclusion,
+            requestRoute: route && route.route,
+            mode: route && route.mode,
+            omitRecentHostTalk: bool(cfg.v3OmitRecentHostTalk, false),
+            recentHostTalkChars: _recentRadioTalk(cfg.recommendChatMessages).length,
+            historyContext: historyStats,
+            diagnosis: formatDiagnosis || parser && parser.failureReason || conclusion,
+            nodesSource: parser && parser.nodesSourceKey,
+            playableNodes: parser && parser.playableNodeCount,
+            speechCount: parser && parser.speechCount,
+            pauseCount: parser && parser.pauseCount,
+            failureReason: parser && parser.failureReason || '',
             api: {
                 state: api && api.state,
                 httpStatus: api && api.httpStatus,
@@ -1230,6 +1333,7 @@
             playlistId: options.playlistId || (v3.currentPlaylist() || {}).id || 'now-playing',
             omitRecentHostTalk: bool(cfg.v3OmitRecentHostTalk, false),
             recentHostTalkChars: _recentRadioTalk(cfg.recommendChatMessages).length,
+            historyContext: radioHistoryContextStats(),
             startedAt: new Date().toISOString()
         };
         eng.lastApiRoute = routeDebug;
