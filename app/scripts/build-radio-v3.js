@@ -84,7 +84,7 @@ page = page.replace(uiAnchor, function() {
 });
 
 data.pageCode = page;
-data.version = '3.9.0-script-playlists';
-data.description = '多主持人私人电台 · 陪伴台本实时显示、历史播放列表、音频多对多映射与本地完整缓存';
+data.version = '3.9.1-host-turn-audio';
+data.description = '多主持人私人电台 · 陪伴语音按连续主持人话轮缓存 · 主持人切换自然停顿 · 历史台本播放列表';
 fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2) + '\n');
 console.log('[build-radio-v3] injected core/UI into', jsonPath);

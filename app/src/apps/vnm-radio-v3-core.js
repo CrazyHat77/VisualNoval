@@ -3,10 +3,10 @@
  * It deliberately uses ES5 syntax because the radio runs inside SillyTavern webviews.
  */
 (function vnr3InstallCore() {
-    if (eng.v3 && eng.v3.version >= 3.9) return;
+    if (eng.v3 && eng.v3.version >= 3.91) return;
 
     var v3 = eng.v3 = {
-        version: 3.9,
+        version: 3.91,
         audio: {},
         continuousRuntime: null,
         sleepTimer: null,
@@ -754,8 +754,6 @@
             { group: '请求模式', key: 'v3PauseMaxCount', type: 'number', label: '连续台本最多停顿节点', default: 8, min: 0, max: 100 },
             { group: '请求模式', key: 'v3PauseMinSeconds', type: 'number', label: '单次停顿最少秒数', default: 5, min: 0, max: 3600 },
             { group: '请求模式', key: 'v3PauseMaxSeconds', type: 'number', label: '单次停顿最多秒数', default: 30, min: 0, max: 3600 },
-            { group: '请求模式', key: 'v3TtsSplitMode', type: 'select', label: '陪伴长台本 TTS 分块方式', default: 'pause', options: [{ v: 'pause', l: '按停顿标记分块' }, { v: 'chars', l: '按最大字数（完整句末切分）' }] },
-            { group: '请求模式', key: 'v3TtsChunkChars', type: 'number', label: '按字数分块：单块软上限（仅陪伴模式）', default: 220, min: 60, max: 1000 },
             { group: '请求模式', key: 'v3TtsPrefetch', type: 'number', label: '连续台本提前准备语音块数', default: 2, min: 1, max: 8 },
             { group: '提示词', key: 'v3TaskModulePrompt', type: 'textarea-presets', label: '当前任务要求模块', rows: 6, variables: ['{{当前任务要求}}'], default: '请严格执行当前请求模式定义的任务；不要额外推荐用户没有要求的内容。' },
             { group: '提示词', key: 'v3RandomModulePrompt', type: 'textarea-presets', label: '随机播放独立台本模块', rows: 7, variables: ['{{随机播放要求}}'], default: '当前曲目将以随机顺序播放。每首歌曲的台本必须能够独立成立，不得引用上一首或下一首，不得使用“刚才那首”“接下来”“延续前面的话题”等依赖固定顺序的表达。不同歌曲之间不得形成必须按顺序理解的情节、对话或情绪递进。' },
@@ -1548,39 +1546,6 @@
         });
     }
 
-    function splitTtsText(text, max) {
-        text = String(text || '').trim();
-        max = Math.max(60, _num(max, 220));
-        if (text.length <= max) return [text];
-        var out = [], start = 0, len = text.length;
-        var endChars = '。！？!?；;.…\n';
-        var closingChars = '"\'”’」』】）》';
-        function isEnd(ch) { return endChars.indexOf(ch) >= 0; }
-        while (start < len) {
-            var target = Math.min(start + max, len);
-            if (target >= len) {
-                out.push(text.slice(start).trim());
-                break;
-            }
-            var cut = -1, i;
-            for (i = target - 1; i >= start; i--) {
-                if (isEnd(text.charAt(i))) { cut = i + 1; break; }
-            }
-            if (cut <= start) {
-                for (i = target; i < len; i++) {
-                    if (isEnd(text.charAt(i))) { cut = i + 1; break; }
-                }
-            }
-            if (cut <= start) cut = len;
-            while (cut < len && closingChars.indexOf(text.charAt(cut)) >= 0) cut++;
-            var chunk = text.slice(start, cut).trim();
-            if (chunk) out.push(chunk);
-            start = cut;
-            while (start < len && /\s/.test(text.charAt(start))) start++;
-        }
-        return out;
-    }
-
     function splitSpeechSentences(text) {
         text = String(text || '').trim();
         if (!text) return [];
@@ -1590,26 +1555,26 @@
 
     function runtimeItems(version) {
         var out = [];
-        var splitMode = cfg.v3TtsSplitMode === 'chars' ? 'chars' : 'pause';
         var source = version.nodes || [];
+        var segmentMap = version.segmentAudioMap || {};
 
         function appendSpeech(n) {
-            var parts = splitMode === 'chars' ? splitTtsText(n.ttsText, cfg.v3TtsChunkChars) : splitSpeechSentences(n.ttsText);
-            var displayParts = splitMode === 'chars' ? splitTtsText(n.displayText || n.ttsText, cfg.v3TtsChunkChars) : splitSpeechSentences(n.displayText || n.ttsText);
-            parts.forEach(function(part, index) {
-                if (!part) return;
-                out.push({
-                    id: n.id + '-' + index,
-                    nodeId: n.id,
-                    type: 'speech',
-                    host: n.host,
-                    ttsText: part,
-                    displayText: displayParts[index] || part,
-                    firstPart: index === 0,
-                    url: '',
-                    requesting: false,
-                    error: ''
-                });
+            var ttsText = String(n.ttsText || '').trim();
+            if (!ttsText) return;
+            var displayText = String(n.displayText || n.ttsText || '').trim();
+            out.push({
+                id: n.id,
+                nodeId: n.id,
+                nodeIds: n.nodeIds || [n.id],
+                type: 'speech',
+                host: n.host,
+                ttsText: ttsText,
+                displayText: displayText || ttsText,
+                captionSentences: splitSpeechSentences(displayText || ttsText),
+                firstPart: true,
+                url: '',
+                requesting: false,
+                error: ''
             });
         }
 
@@ -1628,31 +1593,55 @@
             });
             out.forEach(function(item) {
                 if (item.type !== 'speech') return;
-                var mapped = mapping[item.nodeId] || [];
+                var mapped = [];
+                (item.nodeIds || [item.nodeId]).forEach(function(nodeId) {
+                    (mapping[nodeId] || []).forEach(function(assetId) {
+                        if (mapped.indexOf(assetId) < 0) mapped.push(assetId);
+                    });
+                });
                 item.mappedCovered = mapped.length > 0;
                 item.mappedAssetIds = item.firstPart ? mapped.filter(function(assetId) {
-                    return firstNodeByAsset[assetId] === item.nodeId;
+                    return (item.nodeIds || [item.nodeId]).indexOf(firstNodeByAsset[assetId]) >= 0;
                 }) : [];
                 item.skipMapped = item.mappedCovered && !item.mappedAssetIds.length;
             });
             return out;
         }
 
-        if (splitMode === 'chars') {
-            source.forEach(function(n) {
-                if (n.type === 'pause') out.push({ id: n.id, type: 'pause', seconds: n.seconds });
-                else appendSpeech(n);
-            });
-            return finalize();
+        var pending = null;
+        function flushPending() {
+            if (!pending) return;
+            appendSpeech(pending);
+            pending = null;
         }
-
         source.forEach(function(n) {
             if (n.type === 'pause') {
+                flushPending();
                 out.push({ id: n.id, type: 'pause', seconds: n.seconds });
                 return;
             }
-            appendSpeech(n);
+            var hasMappedAudio = !!(segmentMap[n.id] && segmentMap[n.id].length);
+            if (hasMappedAudio) {
+                flushPending();
+                appendSpeech(n);
+                return;
+            }
+            if (!pending || pending.host !== n.host) {
+                flushPending();
+                pending = {
+                    id: n.id,
+                    nodeIds: [n.id],
+                    host: n.host,
+                    ttsText: String(n.ttsText || '').trim(),
+                    displayText: String(n.displayText || n.ttsText || '').trim()
+                };
+                return;
+            }
+            pending.nodeIds.push(n.id);
+            pending.ttsText += (pending.ttsText ? '\n' : '') + String(n.ttsText || '').trim();
+            pending.displayText += (pending.displayText ? '\n' : '') + String(n.displayText || n.ttsText || '').trim();
         });
+        flushPending();
         return finalize();
     }
 
@@ -1809,6 +1798,69 @@
         }
     }
 
+    function clearCaptionTimer(rt) {
+        if (!rt || !rt.captionTimer) return;
+        try { TOP.clearInterval(rt.captionTimer); } catch (e) {}
+        rt.captionTimer = null;
+    }
+
+    function startCaptionTracking(rt, item, audio) {
+        clearCaptionTimer(rt);
+        var sentences = item.captionSentences || [];
+        if (!sentences.length) sentences = [item.displayText || item.ttsText || ''];
+        rt.currentText = sentences[0] || '';
+        if (sentences.length < 2) return;
+        var weights = [], total = 0;
+        sentences.forEach(function(sentence) {
+            var weight = Math.max(1, String(sentence || '').replace(/\s+/g, '').length);
+            weights.push(weight);
+            total += weight;
+        });
+        rt.captionTimer = TOP.setInterval(function() {
+            if (rt.stopped || rt.audio !== audio) {
+                clearCaptionTimer(rt);
+                return;
+            }
+            var duration = Number(audio.duration) || 0;
+            if (!duration || !isFinite(duration)) return;
+            var target = Math.max(0, Math.min(1, (Number(audio.currentTime) || 0) / duration)) * total;
+            var sum = 0, index = 0;
+            for (var i = 0; i < weights.length; i++) {
+                sum += weights[i];
+                index = i;
+                if (target <= sum) break;
+            }
+            rt.currentText = sentences[index] || sentences[sentences.length - 1] || '';
+        }, 180);
+    }
+
+    function startHostGap(rt) {
+        var delay = 1000 + Math.floor(Math.random() * 1501);
+        rt.hostGapDoneIndex = rt.index;
+        rt.hostGapUntil = Date.now() + delay;
+        rt.hostGapRemainingMs = delay;
+        rt.currentItem = { type: 'host-gap' };
+        rt.currentHost = '';
+        rt.currentText = '主持人切换，稍停 ' + (delay / 1000).toFixed(1) + ' 秒';
+        eng.duck(false);
+        rt.hostGapTimer = TOP.setInterval(function() {
+            if (rt.stopped) {
+                TOP.clearInterval(rt.hostGapTimer);
+                rt.hostGapTimer = null;
+                return;
+            }
+            if (rt.paused) return;
+            rt.hostGapRemainingMs = Math.max(0, rt.hostGapUntil - Date.now());
+            if (rt.hostGapRemainingMs <= 0) {
+                TOP.clearInterval(rt.hostGapTimer);
+                rt.hostGapTimer = null;
+                rt.currentItem = null;
+                playContinuousNext(rt);
+            }
+        }, 100);
+        prefetchContinuous(rt);
+    }
+
     function playContinuousNext(rt) {
         if (!rt || rt.stopped || rt.paused || v3.continuousRuntime !== rt) return;
         if (rt.index >= rt.items.length) {
@@ -1846,6 +1898,8 @@
             rt.finished = true;
             if (v3.state.sleep && v3.state.sleep.loopExisting && !v3.state.sleep.expired) {
                 rt.index = 0;
+                rt.lastSpokenHost = '';
+                rt.hostGapDoneIndex = -1;
                 rt.items.forEach(function(x) { if (x.type === 'speech') { x.error = ''; } });
                 playContinuousNext(rt);
                 return;
@@ -1856,6 +1910,7 @@
         var item = rt.items[rt.index];
         if (item.type === 'pause') {
             eng.duck(false);
+            rt.lastSpokenHost = '';
             rt.currentItem = item;
             rt.currentText = '停顿 ' + Math.max(0, _num(item.seconds, 0)) + ' 秒';
             rt.currentHost = '';
@@ -1885,6 +1940,10 @@
             playContinuousNext(rt);
             return;
         }
+        if (rt.lastSpokenHost && item.host && rt.lastSpokenHost !== item.host && rt.hostGapDoneIndex !== rt.index) {
+            startHostGap(rt);
+            return;
+        }
         prefetchContinuous(rt);
         if (!item.url && !item.error) {
             rt.waitingFor = item.id;
@@ -1907,9 +1966,11 @@
             rt.audio = audio;
             eng.voice = audio;
             audio.muted = !!(eng.store && eng.store.muted);
+            startCaptionTracking(rt, item, audio);
             audio.onended = function() {
                 eng.duck(false);
                 if (cap) cap.close();
+                clearCaptionTimer(rt);
                 rt.audio = null;
                 if (item.urls && item.mappedIndex + 1 < item.urls.length) {
                     item.mappedIndex++;
@@ -1917,6 +1978,7 @@
                     playContinuousNext(rt);
                     return;
                 }
+                rt.lastSpokenHost = item.host || rt.lastSpokenHost || '';
                 if (rt.stopAfterCurrent) {
                     rt.stopped = true;
                     v3.continuousRuntime = null;
@@ -1929,6 +1991,7 @@
             audio.onerror = function() {
                 eng.duck(false);
                 if (cap) cap.close();
+                clearCaptionTimer(rt);
                 rt.audio = null;
                 rt.index++;
                 playContinuousNext(rt);
@@ -1936,6 +1999,7 @@
             audio.play();
         } catch (e) {
             eng.duck(false);
+            clearCaptionTimer(rt);
             rt.index++;
             playContinuousNext(rt);
         }
@@ -1970,6 +2034,8 @@
             currentItem: null,
             currentText: '',
             currentHost: '',
+            lastSpokenHost: '',
+            hostGapDoneIndex: -1,
             nextTriggerIndex: nextCompanionTriggerIndex(runtimeList),
             nextRequested: false,
             nextPending: false,
@@ -2000,6 +2066,11 @@
             rt.pauseTimer = null;
             rt.pauseRemainingMs = Math.max(0, rt.pauseUntil - Date.now());
         }
+        if (rt.hostGapTimer) {
+            TOP.clearInterval(rt.hostGapTimer);
+            rt.hostGapTimer = null;
+            rt.hostGapRemainingMs = Math.max(0, rt.hostGapUntil - Date.now());
+        }
         try { if (rt.audio) rt.audio.pause(); } catch (e) {}
         eng.duck(false);
         v3.uiRefresh();
@@ -2010,7 +2081,19 @@
         var rt = v3.continuousRuntime;
         if (!rt || rt.stopped || !rt.paused) return false;
         rt.paused = false;
-        if (rt.currentItem && rt.currentItem.type === 'pause') {
+        if (rt.currentItem && rt.currentItem.type === 'host-gap') {
+            rt.hostGapUntil = Date.now() + Math.max(0, rt.hostGapRemainingMs || 0);
+            rt.hostGapTimer = TOP.setInterval(function() {
+                if (rt.stopped || rt.paused) return;
+                rt.hostGapRemainingMs = Math.max(0, rt.hostGapUntil - Date.now());
+                if (rt.hostGapRemainingMs <= 0) {
+                    TOP.clearInterval(rt.hostGapTimer);
+                    rt.hostGapTimer = null;
+                    rt.currentItem = null;
+                    playContinuousNext(rt);
+                }
+            }, 100);
+        } else if (rt.currentItem && rt.currentItem.type === 'pause') {
             rt.pauseUntil = Date.now() + Math.max(0, rt.pauseRemainingMs || rt.pauseRemaining * 1000 || 0);
             rt.pauseTimer = TOP.setInterval(function() {
                 if (rt.stopped || rt.paused) return;
@@ -2054,6 +2137,8 @@
         if (!rt) return;
         rt.stopped = true;
         try { if (rt.pauseTimer) TOP.clearInterval(rt.pauseTimer); } catch (e) {}
+        try { if (rt.hostGapTimer) TOP.clearInterval(rt.hostGapTimer); } catch (e1) {}
+        clearCaptionTimer(rt);
         try { if (rt.audio) rt.audio.pause(); } catch (e2) {}
         if (eng.voice === rt.audio) eng.voice = null;
         (rt.items || []).forEach(function(item) {
@@ -2339,9 +2424,15 @@
             var index = 0;
             function next() {
                 if (index >= speechItems.length) {
+                    var validKeys = speechItems.map(function(item) { return item.cacheKey; });
+                    (version.audioCacheKeys || []).forEach(function(key) {
+                        if (validKeys.indexOf(key) < 0) cacheRecordDelete('audio', key).catch(function() {});
+                    });
+                    version.audioCacheKeys = validKeys;
                     version.audioCacheComplete = true;
                     version.audioCacheCount = speechItems.length;
                     version.audioCachedAt = Date.now();
+                    version.audioCacheLayout = 'host-turn-v1';
                     delete version.audioDirectoryFolder;
                     delete version.audioFiles;
                     v3.save();

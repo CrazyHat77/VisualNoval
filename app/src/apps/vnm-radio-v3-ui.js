@@ -1104,7 +1104,7 @@
                 var p = modal('缓存完整语音');
                 var status = V('vnr3-hint', '准备分段请求并写入本地缓存…');
                 p.card.appendChild(status);
-                p.card.appendChild(V('vnr3-hint', '台本会按当前分块规则逐段缓存；再次播放仍会按照原台本中的 pause 秒数停顿。'));
+                p.card.appendChild(V('vnr3-hint', '台本会按连续主持人话轮合并缓存，不再按句切割；主持人切换时会随机停顿 1–2.5 秒，原台本中的 pause 秒数仍会照常执行。'));
                 v3.cacheContinuous(version.id, function(i, n) {
                     status.textContent = '正在缓存 ' + i + ' / ' + n;
                 }, function(err, result) {
