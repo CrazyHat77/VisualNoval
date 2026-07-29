@@ -49,7 +49,7 @@ page = page.replace(coreAnchor, '    ' + CORE_START + '\n' + core + '\n    ' + C
 page = page.replace(uiAnchor, '        ' + UI_START + '\n' + ui + '\n        ' + UI_END + '\n\n' + uiAnchor);
 
 data.pageCode = page;
-data.version = '3.7.0-script-library-cache';
-data.description = '多主持人私人电台 · 本地多歌单 · 推荐/歌单/陪伴三模式 · 统一台本库与长台本本地语音缓存 · 高级背景音';
+data.version = '3.8.0-companion-auto-queue';
+data.description = '多主持人私人电台 · 推荐模式自动补充歌曲 · 陪伴模式提前预取并连续播放长台本 · 统一台本库与本地语音缓存';
 fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2) + '\n');
 console.log('[build-radio-v3] injected core/UI into', jsonPath);

@@ -3,10 +3,10 @@
  * It deliberately uses ES5 syntax because the radio runs inside SillyTavern webviews.
  */
 (function vnr3InstallCore() {
-    if (eng.v3 && eng.v3.version >= 3.7) return;
+    if (eng.v3 && eng.v3.version >= 3.8) return;
 
     var v3 = eng.v3 = {
-        version: 3.7,
+        version: 3.8,
         audio: {},
         continuousRuntime: null,
         sleepTimer: null,
@@ -739,9 +739,13 @@
 
     function addFields() {
         var existing = {};
-        FIELDS.forEach(function(f) { existing[f.key] = 1; });
+        FIELDS.forEach(function(f) {
+            existing[f.key] = 1;
+            if (f.key === 'autoRequest') f.label = '自动请求下一批（推荐模式）';
+        });
         var list = [
             { group: '请求模式', key: 'v3ShortPersonaEnabled', type: 'toggle', label: '使用 Artist 中设置的电台简短人设', default: false },
+            { group: '请求模式', key: 'v3CompanionAutoRequest', type: 'toggle', label: '自动请求新台本（陪伴模式）', default: false },
             { group: '请求模式', key: 'v3CompanionWords', type: 'number', label: '陪伴模式目标字数', default: 3000, min: 300, max: 20000, step: 100 },
             { group: '请求模式', key: 'v3PauseMinCount', type: 'number', label: '连续台本最少停顿节点', default: 3, min: 0, max: 100 },
             { group: '请求模式', key: 'v3PauseMaxCount', type: 'number', label: '连续台本最多停顿节点', default: 8, min: 0, max: 100 },
@@ -984,9 +988,10 @@
         return out;
     }
 
-    v3.requestCompanion = function(manual) {
-        if (eng.busy) return;
-        if (!manual && !v3.consumeAutoRequest()) return;
+    v3.requestCompanion = function(manual, options) {
+        options = options || {};
+        if (eng.busy) return false;
+        if (!manual && !v3.consumeAutoRequest()) return false;
         eng.busy = true;
         var words = Math.max(300, _num(cfg.v3CompanionWords, 3000));
         var pauseRules = companionPauseRules();
@@ -1008,7 +1013,7 @@
             }
             var version = {
                 id: uid('continuous'),
-                playlistId: (v3.currentPlaylist() || {}).id || 'now-playing',
+                playlistId: options.playlistId || (v3.currentPlaylist() || {}).id || 'now-playing',
                 createdAt: Date.now(),
                 title: '陪伴台本 ' + new Date().toLocaleString(),
                 nodes: nodes,
@@ -1028,18 +1033,26 @@
                 }
             });
             v3.state.continuousVersions = favorites.concat(normal);
-            v3.state.activeContinuousIds[version.playlistId] = version.id;
-            v3.state.activeContinuousId = version.id;
             v3.save();
             _clearApiStatus('v3-companion');
-            _toast('连续台本已生成');
-            v3.playContinuous(version.id);
+            if (options.play === false) {
+                _toast('下一份陪伴台本已准备好');
+                if (options.onReady) options.onReady(version);
+            } else {
+                v3.state.activeContinuousIds[version.playlistId] = version.id;
+                v3.state.activeContinuousId = version.id;
+                v3.save();
+                _toast('连续台本已生成');
+                v3.playContinuous(version.id);
+            }
             v3.uiRefresh();
         }, function(e) {
             eng.busy = false;
             _setApiStatus('error', 'v3-companion', '请求连续台本', e, '');
             _toast('连续台本请求失败: ' + e);
+            if (options.onError) options.onError(e);
         });
+        return true;
     };
 
     v3.activeContinuous = function(playlistId) {
@@ -1362,6 +1375,64 @@
         return finalize();
     }
 
+    function companionAutoRequestEnabled() {
+        return bool(cfg.v3CompanionAutoRequest, false) && v3.state.mode === 'companion';
+    }
+
+    function nextCompanionTriggerIndex(items) {
+        items = items || [];
+        var lastSpeech = -1, i;
+        /* 末尾 pause 仍会播放，但不参与“何时请求下一台本”的计算。 */
+        for (i = items.length - 1; i >= 0; i--) {
+            if (items[i] && items[i].type === 'speech') {
+                lastSpeech = i;
+                break;
+            }
+        }
+        if (lastSpeech < 0) return -1;
+        /* 最后一个有效 pause 后面的整组朗读，是最后一组有效台本。 */
+        for (i = lastSpeech - 1; i >= 0; i--) {
+            if (items[i] && items[i].type === 'pause') return i + 1;
+        }
+        return 0;
+    }
+    v3.nextCompanionTriggerIndex = nextCompanionTriggerIndex;
+
+    function requestNextCompanion(rt) {
+        if (!rt || rt.stopped || rt.nextRequested || !companionAutoRequestEnabled()) return false;
+        rt.nextRequested = true;
+        rt.nextPending = true;
+        rt.nextError = '';
+        var started = v3.requestCompanion(false, {
+            play: false,
+            playlistId: rt.version && rt.version.playlistId || 'now-playing',
+            onReady: function(version) {
+                rt.nextPending = false;
+                rt.nextVersionId = version.id;
+                if (rt.stopped || v3.continuousRuntime !== rt) return;
+                if (rt.waitingForNext) v3.playContinuous(version.id);
+                else v3.uiRefresh();
+            },
+            onError: function(error) {
+                rt.nextPending = false;
+                rt.nextRequested = false;
+                rt.nextError = error || '下一份台本请求失败';
+                if (rt.waitingForNext) {
+                    rt.finished = true;
+                    rt.waitingForNext = false;
+                }
+                v3.uiRefresh();
+            }
+        });
+        if (!started) {
+            rt.nextRequested = false;
+            rt.nextPending = false;
+            return false;
+        }
+        v3.uiRefresh();
+        return true;
+    }
+
     function prefetchContinuous(rt) {
         if (!rt || rt.stopped) return;
         var wanted = Math.max(1, _num(cfg.v3TtsPrefetch, 2)), active = 0;
@@ -1369,6 +1440,7 @@
             var item = rt.items[i];
             if (item.type === 'pause') break;
             if (item.type !== 'speech' || item.url || item.requesting || item.error) continue;
+            if (i === rt.nextTriggerIndex) requestNextCompanion(rt);
             item.requesting = true;
             active++;
             (function(job) {
@@ -1417,6 +1489,22 @@
         if (!rt || rt.stopped || v3.continuousRuntime !== rt) return;
         if (rt.index >= rt.items.length) {
             eng.duck(false);
+            if (companionAutoRequestEnabled()) {
+                if (rt.nextVersionId) {
+                    v3.playContinuous(rt.nextVersionId);
+                    return;
+                }
+                if (rt.nextPending) {
+                    rt.waitingForNext = true;
+                    v3.uiRefresh();
+                    return;
+                }
+                if (!rt.nextRequested && requestNextCompanion(rt)) {
+                    rt.waitingForNext = true;
+                    v3.uiRefresh();
+                    return;
+                }
+            }
             rt.finished = true;
             if (v3.state.sleep && v3.state.sleep.loopExisting && !v3.state.sleep.expired) {
                 rt.index = 0;
@@ -1513,14 +1601,21 @@
         } catch (e) {}
         v3.state.activeContinuousId = version.id;
         v3.state.activeContinuousIds[version.playlistId || 'now-playing'] = version.id;
+        var runtimeList = runtimeItems(version);
         var rt = v3.continuousRuntime = {
             versionId: id,
             version: version,
-            items: runtimeItems(version),
+            items: runtimeList,
             index: 0,
             stopped: false,
             finished: false,
-            waitingFor: ''
+            waitingFor: '',
+            nextTriggerIndex: nextCompanionTriggerIndex(runtimeList),
+            nextRequested: false,
+            nextPending: false,
+            nextVersionId: '',
+            waitingForNext: false,
+            nextError: ''
         };
         v3.save();
         prefetchContinuous(rt);

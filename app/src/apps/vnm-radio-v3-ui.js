@@ -54,6 +54,7 @@
         eng.__v3RequestWrapped = true;
         var vnr3OldRequest = eng.request;
         eng.request = function() {
+            if (v3.state.mode !== 'recommend' && !v3.manualApiBypass) return;
             if (!v3.manualApiBypass && !v3.consumeAutoRequest()) {
                 _toast('睡眠模式的自动请求次数已用完');
                 return;
