@@ -3,10 +3,10 @@
  * It deliberately uses ES5 syntax because the radio runs inside SillyTavern webviews.
  */
 (function vnr3InstallCore() {
-    if (eng.v3 && eng.v3.version >= 3.8) return;
+    if (eng.v3 && eng.v3.version >= 3.9) return;
 
     var v3 = eng.v3 = {
-        version: 3.8,
+        version: 3.9,
         audio: {},
         continuousRuntime: null,
         sleepTimer: null,
@@ -143,6 +143,8 @@
             version.favorite = !!version.favorite;
             version.audioCacheKeys = Object.prototype.toString.call(version.audioCacheKeys) === '[object Array]' ? version.audioCacheKeys : [];
             version.audioFiles = version.audioFiles && typeof version.audioFiles === 'object' ? version.audioFiles : {};
+            version.audioAssets = Object.prototype.toString.call(version.audioAssets) === '[object Array]' ? version.audioAssets : [];
+            version.segmentAudioMap = version.segmentAudioMap && typeof version.segmentAudioMap === 'object' ? version.segmentAudioMap : {};
         });
         if (st.activeContinuousId && !st.activeContinuousIds['now-playing']) {
             st.activeContinuousIds['now-playing'] = st.activeContinuousId;
@@ -152,8 +154,8 @@
         st.backgroundChecked = st.backgroundChecked || {};
         st.pendingImport = null;
         st.sleep = st.sleep || null;
-        st.cacheDirectoryName = String(st.cacheDirectoryName || '');
-        st.schema = 4;
+        st.scriptPlaylistSelection = st.scriptPlaylistSelection && typeof st.scriptPlaylistSelection === 'object' ? st.scriptPlaylistSelection : {};
+        st.schema = 5;
         return st;
     }
 
@@ -717,6 +719,7 @@
         '',
         '【本次任务】',
         '创作约 {{目标字数}} 字的连续长篇陪伴台本。主持人要自然地陪伴 {{用户名称}}，可以聊天、讲述、回应用户、分享想法或围绕当前语境展开话题，内容应连贯、耐听，避免机械报幕、空洞寒暄和反复重复相同意思。',
+        '字数统计必须严格以所有 speech.ttsText 中实际会被主持人口播的正文合计为准，并使该口播正文达到约 {{目标字数}} 字。JSON 键名与结构、host、displayText 中与口播重复的内容、VoiceTag、pause 标记、秒数、转义符、空白及任何元数据均不计入此字数要求；不得用增加标签或结构字符来凑字数。',
         '',
         '如果有多名主持人，他们是共同主持这段节目：可以轮流说话、互相接话、讨论、打趣、补充或回应对方，也可以由一位主导、其他人自然加入。不要固定轮流顺序，不要求每段所有人都发言，但整篇应让适合参与的主持人真正参与交流。每个 speech.host 必须使用【主持人】中出现的名字。',
         '',
@@ -745,7 +748,7 @@
         });
         var list = [
             { group: '请求模式', key: 'v3ShortPersonaEnabled', type: 'toggle', label: '使用 Artist 中设置的电台简短人设', default: false },
-            { group: '请求模式', key: 'v3CompanionAutoRequest', type: 'toggle', label: '自动请求新台本（陪伴模式）', default: false },
+            { group: '请求模式', key: 'v3CompanionAutoRequest', type: 'toggle', label: '自动请求新台本（陪伴模式）', default: true },
             { group: '请求模式', key: 'v3CompanionWords', type: 'number', label: '陪伴模式目标字数', default: 3000, min: 300, max: 20000, step: 100 },
             { group: '请求模式', key: 'v3PauseMinCount', type: 'number', label: '连续台本最少停顿节点', default: 3, min: 0, max: 100 },
             { group: '请求模式', key: 'v3PauseMaxCount', type: 'number', label: '连续台本最多停顿节点', default: 8, min: 0, max: 100 },
@@ -780,6 +783,14 @@
                 .replace(/\n*【柏宝书总结】\n\{\{柏宝书总结\}\}/g, '')
                 .replace('pause 是主持人说完一段内容后留给用户的独立安静时段，不是语气停顿。pause 前后应在内容上自然衔接；播放 pause 时系统会停止请求语音并恢复背景声音，倒计时结束后再继续后面的 speech。', '停顿是主持人说完一段内容后留给用户的独立安静时段，不是语气停顿。需要停顿时，必须在 nodes 数组中插入独立字符串标记 [pause=Ns]，例如停顿 24 秒就输出 "[pause=24s]"。标记不得放进 speech.ttsText 或 speech.displayText，也不得让主持人念出。播放停顿标记时，系统会停止请求语音并恢复背景声音，倒计时结束后再继续后面的 speech。')
                 .replace('5. pause 节点只能包含 type 与 seconds，不要给 pause 添加主持人或文本。', '5. 停顿只能使用独立的 "[pause=Ns]" 字符串标记；N 必须是允许区间内的秒数。');
+        }
+        var wordRule = '字数统计必须严格以所有 speech.ttsText 中实际会被主持人口播的正文合计为准，并使该口播正文达到约 {{目标字数}} 字。JSON 键名与结构、host、displayText 中与口播重复的内容、VoiceTag、pause 标记、秒数、转义符、空白及任何元数据均不计入此字数要求；不得用增加标签或结构字符来凑字数。';
+        if (cfg.v3CompanionPrompt && cfg.v3CompanionPrompt.indexOf('speech.ttsText 中实际会被主持人口播') < 0) {
+            cfg.v3CompanionPrompt += '\n\n【口播正文的字数口径】\n' + wordRule;
+        }
+        if (!cfg.v3CompanionAutoRequestDefaultV2) {
+            cfg.v3CompanionAutoRequest = true;
+            cfg.v3CompanionAutoRequestDefaultV2 = true;
         }
         _saveCfg();
     }
@@ -919,9 +930,56 @@
         };
     }
 
-    function parseCompanion(text) {
-        var obj = _tryJson(text) || {};
-        var raw = obj.nodes || obj.segments || obj.items || [];
+    function companionRawNodes(obj) {
+        if (Object.prototype.toString.call(obj) === '[object Array]') return { key: '$', value: obj };
+        obj = obj || {};
+        var candidates = [
+            ['nodes', obj.nodes], ['segments', obj.segments], ['items', obj.items],
+            ['script', obj.script],
+            ['script.nodes', obj.script && obj.script.nodes],
+            ['script.segments', obj.script && obj.script.segments],
+            ['data.nodes', obj.data && obj.data.nodes],
+            ['data.segments', obj.data && obj.data.segments],
+            ['radioScript.nodes', obj.radioScript && obj.radioScript.nodes],
+            ['radio_script.nodes', obj.radio_script && obj.radio_script.nodes]
+        ];
+        for (var i = 0; i < candidates.length; i++) {
+            if (Object.prototype.toString.call(candidates[i][1]) === '[object Array]') {
+                return { key: candidates[i][0], value: candidates[i][1] };
+            }
+        }
+        function findNested(value, path, depth) {
+            if (!value || typeof value !== 'object' || depth > 3) return null;
+            var keys = Object.keys(value);
+            for (var j = 0; j < keys.length; j++) {
+                var child = value[keys[j]], childPath = path ? path + '.' + keys[j] : keys[j];
+                if (Object.prototype.toString.call(child) === '[object Array]' && /nodes|segments|items|script/i.test(keys[j])) {
+                    return { key: childPath, value: child };
+                }
+            }
+            for (var k = 0; k < keys.length; k++) {
+                var nested = findNested(value[keys[k]], path ? path + '.' + keys[k] : keys[k], depth + 1);
+                if (nested) return nested;
+            }
+            return null;
+        }
+        var nestedResult = findNested(obj, '', 0);
+        if (nestedResult) return nestedResult;
+        return { key: '', value: [] };
+    }
+
+    function recordCompanionDebug(debug) {
+        debug = debug || {};
+        debug.recordedAt = new Date().toISOString();
+        try { TOP.__vnmRadioLastCompanionDebug = debug; } catch (e) {}
+        try { TOP.localStorage.setItem('vnm-radio-last-companion-debug', JSON.stringify(debug)); } catch (e2) {}
+        return debug;
+    }
+
+    function parseCompanion(text, debug) {
+        var obj = _jsonFromText(text);
+        var picked = companionRawNodes(obj);
+        var raw = picked.value;
         if (Object.prototype.toString.call(raw) !== '[object Array]') raw = [];
         var hosts = _selectedHosts(eng.store || {});
         var fallback = hosts[0] && hosts[0].name || '主持人';
@@ -967,7 +1025,8 @@
             });
         }
 
-        raw.forEach(function(n) {
+        var ignored = [];
+        raw.forEach(function(n, rawIndex) {
             if (!n) return;
             if (typeof n === 'string') {
                 var marker = /^\s*\[pause\s*=\s*(\d+(?:\.\d+)?)\s*s\]\s*$/i.exec(n);
@@ -976,17 +1035,84 @@
                 return;
             }
             if (n.type === 'pause' || n.pauseSeconds !== undefined || n.seconds !== undefined && !n.ttsText && !n.text) {
-                pushPause(n.seconds !== undefined ? n.seconds : n.pauseSeconds);
+                pushPause(n.seconds !== undefined ? n.seconds : (n.pauseSeconds !== undefined ? n.pauseSeconds : n.duration));
                 return;
             }
-            var host = String(n.host || fallback).trim();
-            var tts = String(n.ttsText || n.tts || n.speech || n.text || '').trim();
+            var host = String(n.host || n.speaker || n.character || fallback).trim();
+            var tts = String(n.ttsText || n.tts || n.speech || n.text || n.content || '').trim();
             var display = String(n.displayText || n.display || n.translation || tts).trim();
-            if (!tts && !display) return;
+            if (!tts && !display) {
+                ignored.push({ index: rawIndex, reason: '对象没有可识别的 ttsText/tts/speech/text/displayText 字段', value: n });
+                return;
+            }
             pushMarkedSpeech(host, tts || display, display || tts);
         });
+        if (debug) {
+            debug.contentJsonValid = !!obj;
+            debug.parsedTopLevelType = Object.prototype.toString.call(obj);
+            debug.parsedTopLevelKeys = obj && typeof obj === 'object' && Object.prototype.toString.call(obj) !== '[object Array]' ? Object.keys(obj) : [];
+            debug.nodesSourceKey = picked.key;
+            debug.rawNodeCount = raw.length;
+            debug.rawFirstNode = raw.length ? raw[0] : null;
+            debug.rawLastNode = raw.length ? raw[raw.length - 1] : null;
+            debug.playableNodeCount = out.length;
+            debug.speechCount = out.filter(function(n) { return n.type === 'speech'; }).length;
+            debug.pauseCount = out.filter(function(n) { return n.type === 'pause'; }).length;
+            debug.playableFirstNode = out.length ? out[0] : null;
+            debug.playableLastNode = out.length ? out[out.length - 1] : null;
+            debug.ignoredNodes = ignored;
+            debug.failureReason = !obj ? '返回内容不是可解析的 JSON' : (!picked.key ? 'JSON 中未找到支持的 nodes/segments/items 数组' : (!out.length ? '节点数组存在，但没有节点能转换为 speech 或 pause' : ''));
+        }
         return out;
     }
+
+    v3.debugParseCompanion = function(text) {
+        var debug = { source: 'manual-console', content: String(text || ''), contentChars: String(text || '').length };
+        debug.nodes = parseCompanion(text, debug);
+        return recordCompanionDebug(debug);
+    };
+
+    TOP._vnmRadioDiagnoseCompanion = function() {
+        var api = TOP.__vnmRadioLastApi || null;
+        var parser = TOP.__vnmRadioLastCompanionDebug || null;
+        try { if (!api) api = JSON.parse(TOP.localStorage.getItem('vnm-radio-last-api-debug') || 'null'); } catch (e) {}
+        try { if (!parser) parser = JSON.parse(TOP.localStorage.getItem('vnm-radio-last-companion-debug') || 'null'); } catch (e2) {}
+        var response = null, content = parser && parser.content || '';
+        try {
+            response = api && api.responseText ? JSON.parse(api.responseText) : null;
+            if (!content) content = response && response.choices && response.choices[0] && response.choices[0].message && response.choices[0].message.content || '';
+        } catch (e3) {}
+        var choice = response && response.choices && response.choices[0] || {};
+        var report = {
+            conclusion: api && api.httpStatus === 200 && choice.finish_reason === 'stop' ?
+                'API 正常完整返回；若应用仍报失败，请重点看 parser.failureReason / ignoredNodes。' :
+                '请结合 HTTP 状态、finish_reason、providerError 与 parser.failureReason 判断。',
+            api: {
+                state: api && api.state,
+                httpStatus: api && api.httpStatus,
+                httpStatusText: api && api.httpStatusText,
+                durationMs: api && api.durationMs,
+                model: response && response.model || api && api.request && api.request.model,
+                requestedMaxTokens: api && api.request && api.request.max_tokens,
+                finishReason: choice.finish_reason || '',
+                usage: response && response.usage || null,
+                providerError: response && response.error || api && api.error || ''
+            },
+            parser: parser,
+            fullContent: String(content || ''),
+            rawResponseText: api && api.responseText || ''
+        };
+        try {
+            TOP.console.group('VNM Radio 陪伴台本完整诊断');
+            TOP.console.log('结论：' + report.conclusion);
+            TOP.console.log('API / 解析摘要：', report);
+            TOP.console.log('完整模型 content（字符串，不会折叠）：\n' + report.fullContent);
+            TOP.console.log('完整 HTTP responseText（字符串，不会折叠）：\n' + report.rawResponseText);
+            TOP.console.log('复制全部报告：copy(JSON.stringify(_vnmRadioDiagnoseCompanion(), null, 2))');
+            TOP.console.groupEnd();
+        } catch (e4) {}
+        return report;
+    };
 
     v3.requestCompanion = function(manual, options) {
         options = options || {};
@@ -1005,7 +1131,14 @@
         _setApiStatus('loading', 'v3-companion', '请求连续台本', '', '');
         _chat([{ role: 'system', content: prompt }, { role: 'user', content: '请生成连续陪伴台本。' }], function(text) {
             eng.busy = false;
-            var nodes = parseCompanion(text);
+            var companionDebug = {
+                source: 'request-success',
+                request: { targetWords: words, systemPromptChars: prompt.length, userPromptChars: 10 },
+                content: String(text || ''),
+                contentChars: String(text || '').length
+            };
+            var nodes = parseCompanion(text, companionDebug);
+            recordCompanionDebug(companionDebug);
             if (!nodes.length) {
                 _setApiStatus('error', 'v3-companion', '请求连续台本', '返回中没有可播放节点', '');
                 _toast('连续台本格式无法解析');
@@ -1048,6 +1181,11 @@
             v3.uiRefresh();
         }, function(e) {
             eng.busy = false;
+            recordCompanionDebug({
+                source: 'request-error',
+                request: { targetWords: words, systemPromptChars: prompt.length, userPromptChars: 10 },
+                providerError: e && e.message || String(e || '未知错误')
+            });
             _setApiStatus('error', 'v3-companion', '请求连续台本', e, '');
             _toast('连续台本请求失败: ' + e);
             if (options.onError) options.onError(e);
@@ -1086,6 +1224,9 @@
         }
         if (v3.state.activeContinuousId === id) v3.state.activeContinuousId = '';
         (version.audioCacheKeys || []).forEach(function(key) { cacheRecordDelete('audio', key).catch(function() {}); });
+        (version.audioAssets || []).forEach(function(asset) {
+            if (asset && asset.blobKey) cacheRecordDelete('audio', asset.blobKey).catch(function() {});
+        });
         v3.save();
         v3.uiRefresh();
         return true;
@@ -1153,6 +1294,140 @@
             });
         });
     }
+
+    function speechNodes(version) {
+        return (version && version.nodes || []).filter(function(node) { return node && node.type !== 'pause'; });
+    }
+
+    function audioAssetBlobKey(versionId, assetId) {
+        return 'asset|' + versionId + '|' + assetId;
+    }
+
+    function autoMatchAsset(version, name) {
+        var nodes = speechNodes(version);
+        if (!nodes.length) return [];
+        var lower = String(name || '').toLowerCase();
+        var numberMatch = lower.match(/(?:^|[^\d])0*(\d{1,4})(?:[^\d]|$)/);
+        if (numberMatch) {
+            var index = _num(numberMatch[1], 0) - 1;
+            if (nodes[index]) return [nodes[index].id];
+        }
+        var normalized = lower.replace(/\.[a-z0-9]{2,5}$/i, '').replace(/[\s_\-.[\]()（）【】]+/g, '');
+        for (var i = 0; i < nodes.length; i++) {
+            var text = String(nodes[i].displayText || nodes[i].ttsText || '').toLowerCase().replace(/[\s_\-.,，。！？!?；;:：'"“”‘’]+/g, '');
+            if (normalized.length >= 6 && text.indexOf(normalized.slice(0, Math.min(18, normalized.length))) >= 0) return [nodes[i].id];
+        }
+        return [];
+    }
+
+    function mapAsset(version, assetId, nodeIds) {
+        version.segmentAudioMap = version.segmentAudioMap || {};
+        speechNodes(version).forEach(function(node) {
+            var list = Object.prototype.toString.call(version.segmentAudioMap[node.id]) === '[object Array]' ? version.segmentAudioMap[node.id] : [];
+            version.segmentAudioMap[node.id] = list.filter(function(id) { return id !== assetId; });
+        });
+        (nodeIds || []).forEach(function(nodeId) {
+            var list = version.segmentAudioMap[nodeId] || (version.segmentAudioMap[nodeId] = []);
+            if (list.indexOf(assetId) < 0) list.push(assetId);
+        });
+    }
+
+    v3.setAudioAssetSegments = function(versionId, assetId, nodeIds) {
+        var version = v3.continuousById(versionId);
+        if (!version) return false;
+        mapAsset(version, assetId, nodeIds || []);
+        v3.save();
+        v3.uiRefresh();
+        return true;
+    };
+
+    v3.addAudioFiles = function(versionId, files, done) {
+        var version = v3.continuousById(versionId);
+        files = Array.prototype.slice.call(files || []);
+        if (!version || !files.length) {
+            done && done('没有选择音频文件');
+            return;
+        }
+        version.audioAssets = version.audioAssets || [];
+        var index = 0, added = [];
+        function next() {
+            if (index >= files.length) {
+                v3.save();
+                v3.uiRefresh();
+                done && done(null, added);
+                return;
+            }
+            var file = files[index++];
+            var asset = {
+                id: uid('audio'),
+                name: file.name || ('音频 ' + index),
+                kind: 'file',
+                blobKey: '',
+                createdAt: Date.now()
+            };
+            asset.blobKey = audioAssetBlobKey(version.id, asset.id);
+            cacheRecordPut('audio', {
+                key: asset.blobKey,
+                versionId: version.id,
+                assetId: asset.id,
+                createdAt: Date.now(),
+                type: file.type || 'audio/mpeg',
+                blob: file
+            }).then(function() {
+                version.audioAssets.push(asset);
+                mapAsset(version, asset.id, autoMatchAsset(version, asset.name));
+                added.push(asset);
+                next();
+            }).catch(function(e) { done && done((e && e.message) || String(e)); });
+        }
+        next();
+    };
+
+    v3.addAudioUrls = function(versionId, urls, done) {
+        var version = v3.continuousById(versionId);
+        urls = (urls || []).map(function(url) { return String(url || '').trim(); }).filter(Boolean);
+        if (!version || !urls.length) {
+            done && done('没有可添加的音频 URL');
+            return;
+        }
+        version.audioAssets = version.audioAssets || [];
+        var added = [];
+        urls.forEach(function(url, index) {
+            var pathname = url.split(/[?#]/)[0];
+            var decodedName = '';
+            try { decodedName = decodeURIComponent(pathname.slice(pathname.lastIndexOf('/') + 1)); } catch (e) { decodedName = pathname.slice(pathname.lastIndexOf('/') + 1); }
+            var asset = {
+                id: uid('audio'),
+                name: decodedName || ('URL 音频 ' + (index + 1)),
+                kind: 'url',
+                url: url,
+                createdAt: Date.now()
+            };
+            version.audioAssets.push(asset);
+            mapAsset(version, asset.id, autoMatchAsset(version, asset.name));
+            added.push(asset);
+        });
+        v3.save();
+        v3.uiRefresh();
+        done && done(null, added);
+    };
+
+    v3.deleteAudioAsset = function(versionId, assetId, done) {
+        var version = v3.continuousById(versionId);
+        if (!version) return;
+        var asset = null;
+        version.audioAssets = (version.audioAssets || []).filter(function(item) {
+            if (item.id === assetId) asset = item;
+            return item.id !== assetId;
+        });
+        mapAsset(version, assetId, []);
+        var finish = asset && asset.blobKey ? cacheRecordDelete('audio', asset.blobKey) : TOP.Promise.resolve();
+        finish.catch(function() {}).then(function() {
+            v3.save();
+            v3.uiRefresh();
+            done && done(null);
+        });
+    };
 
     function simpleHash(text) {
         text = String(text || '');
@@ -1306,13 +1581,21 @@
         return out;
     }
 
+    function splitSpeechSentences(text) {
+        text = String(text || '').trim();
+        if (!text) return [];
+        var matches = text.match(/[^。！？!?；;\n]+[。！？!?；;]?/g) || [text];
+        return matches.map(function(part) { return String(part || '').trim(); }).filter(Boolean);
+    }
+
     function runtimeItems(version) {
         var out = [];
         var splitMode = cfg.v3TtsSplitMode === 'chars' ? 'chars' : 'pause';
         var source = version.nodes || [];
 
         function appendSpeech(n) {
-            var parts = splitMode === 'chars' ? splitTtsText(n.ttsText, cfg.v3TtsChunkChars) : [String(n.ttsText || '').trim()];
+            var parts = splitMode === 'chars' ? splitTtsText(n.ttsText, cfg.v3TtsChunkChars) : splitSpeechSentences(n.ttsText);
+            var displayParts = splitMode === 'chars' ? splitTtsText(n.displayText || n.ttsText, cfg.v3TtsChunkChars) : splitSpeechSentences(n.displayText || n.ttsText);
             parts.forEach(function(part, index) {
                 if (!part) return;
                 out.push({
@@ -1321,7 +1604,7 @@
                     type: 'speech',
                     host: n.host,
                     ttsText: part,
-                    displayText: n.displayText,
+                    displayText: displayParts[index] || part,
                     firstPart: index === 0,
                     url: '',
                     requesting: false,
@@ -1334,6 +1617,24 @@
             out.forEach(function(item) {
                 if (item.type === 'speech') item.cacheKey = audioCacheKey(version, item);
             });
+            var sourceOrder = {};
+            speechNodes(version).forEach(function(node, index) { sourceOrder[node.id] = index; });
+            var mapping = version.segmentAudioMap || {};
+            var firstNodeByAsset = {};
+            Object.keys(mapping).forEach(function(nodeId) {
+                (mapping[nodeId] || []).forEach(function(assetId) {
+                    if (!firstNodeByAsset[assetId] || sourceOrder[nodeId] < sourceOrder[firstNodeByAsset[assetId]]) firstNodeByAsset[assetId] = nodeId;
+                });
+            });
+            out.forEach(function(item) {
+                if (item.type !== 'speech') return;
+                var mapped = mapping[item.nodeId] || [];
+                item.mappedCovered = mapped.length > 0;
+                item.mappedAssetIds = item.firstPart ? mapped.filter(function(assetId) {
+                    return firstNodeByAsset[assetId] === item.nodeId;
+                }) : [];
+                item.skipMapped = item.mappedCovered && !item.mappedAssetIds.length;
+            });
             return out;
         }
 
@@ -1345,38 +1646,18 @@
             return finalize();
         }
 
-        var pending = null;
-        function flushPending() {
-            if (!pending) return;
-            appendSpeech(pending);
-            pending = null;
-        }
         source.forEach(function(n) {
             if (n.type === 'pause') {
-                flushPending();
                 out.push({ id: n.id, type: 'pause', seconds: n.seconds });
                 return;
             }
-            if (!pending || pending.host !== n.host) {
-                flushPending();
-                pending = {
-                    id: n.id,
-                    type: 'speech',
-                    host: n.host,
-                    ttsText: String(n.ttsText || '').trim(),
-                    displayText: String(n.displayText || '').trim()
-                };
-                return;
-            }
-            pending.ttsText += (pending.ttsText ? '\n' : '') + String(n.ttsText || '').trim();
-            pending.displayText += (pending.displayText ? '\n' : '') + String(n.displayText || '').trim();
+            appendSpeech(n);
         });
-        flushPending();
         return finalize();
     }
 
     function companionAutoRequestEnabled() {
-        return bool(cfg.v3CompanionAutoRequest, false) && v3.state.mode === 'companion';
+        return bool(cfg.v3CompanionAutoRequest, true) && v3.state.mode === 'companion';
     }
 
     function nextCompanionTriggerIndex(items) {
@@ -1400,6 +1681,7 @@
 
     function requestNextCompanion(rt) {
         if (!rt || rt.stopped || rt.nextRequested || !companionAutoRequestEnabled()) return false;
+        if (v3.continuousSequence) return false;
         rt.nextRequested = true;
         rt.nextPending = true;
         rt.nextError = '';
@@ -1433,17 +1715,59 @@
         return true;
     }
 
+    function mappedAssetById(version, id) {
+        var found = null;
+        (version.audioAssets || []).forEach(function(asset) { if (asset && asset.id === id) found = asset; });
+        return found;
+    }
+
+    function loadMappedAssetUrls(version, item) {
+        var ids = item.mappedAssetIds || [];
+        var jobs = ids.map(function(id) {
+            var asset = mappedAssetById(version, id);
+            if (!asset) return TOP.Promise.resolve(null);
+            if (asset.kind === 'url' && asset.url) return TOP.Promise.resolve({ url: asset.url, assetId: asset.id, objectUrl: false });
+            if (!asset.blobKey) return TOP.Promise.resolve(null);
+            return cacheRecordGet('audio', asset.blobKey).then(function(record) {
+                if (!record || !record.blob) return null;
+                var url = (TOP.URL || URL).createObjectURL(record.blob);
+                return { url: url, assetId: asset.id, objectUrl: true };
+            });
+        });
+        return TOP.Promise.all(jobs).then(function(rows) { return rows.filter(Boolean); });
+    }
+
     function prefetchContinuous(rt) {
         if (!rt || rt.stopped) return;
         var wanted = Math.max(1, _num(cfg.v3TtsPrefetch, 2)), active = 0;
         for (var i = rt.index; i < rt.items.length && active < wanted; i++) {
             var item = rt.items[i];
             if (item.type === 'pause') break;
-            if (item.type !== 'speech' || item.url || item.requesting || item.error) continue;
+            if (item.type !== 'speech' || item.url || item.urls || item.skipMapped || item.requesting || item.error) continue;
             if (i === rt.nextTriggerIndex) requestNextCompanion(rt);
             item.requesting = true;
             active++;
             (function(job) {
+                if (job.mappedAssetIds && job.mappedAssetIds.length) {
+                    loadMappedAssetUrls(rt.version, job).then(function(rows) {
+                        job.requesting = false;
+                        if (rows.length) {
+                            job.urls = rows;
+                            job.url = rows[0].url;
+                            job.mappedIndex = 0;
+                        } else {
+                            job.error = '匹配的本地/URL 音频不可用';
+                        }
+                        v3.uiRefresh();
+                        if (rt.waitingFor === job.id) playContinuousNext(rt);
+                        prefetchContinuous(rt);
+                    }).catch(function(e) {
+                        job.requesting = false;
+                        job.error = (e && e.message) || String(e);
+                        if (rt.waitingFor === job.id) playContinuousNext(rt);
+                    });
+                    return;
+                }
                 getCachedAudioBlob(rt.version, job).then(function(blob) {
                     if (rt.stopped) return;
                     if (blob) {
@@ -1486,9 +1810,23 @@
     }
 
     function playContinuousNext(rt) {
-        if (!rt || rt.stopped || v3.continuousRuntime !== rt) return;
+        if (!rt || rt.stopped || rt.paused || v3.continuousRuntime !== rt) return;
         if (rt.index >= rt.items.length) {
             eng.duck(false);
+            rt.currentItem = null;
+            rt.currentText = '';
+            rt.currentHost = '';
+            if (v3.continuousSequence && v3.continuousSequence.index < v3.continuousSequence.ids.length - 1) {
+                v3.continuousSequence.index++;
+                v3.playContinuous(v3.continuousSequence.ids[v3.continuousSequence.index], { preserveSequence: true });
+                return;
+            }
+            if (v3.continuousSequence) {
+                v3.continuousSequence = null;
+                rt.finished = true;
+                v3.uiRefresh();
+                return;
+            }
             if (companionAutoRequestEnabled()) {
                 if (rt.nextVersionId) {
                     v3.playContinuous(rt.nextVersionId);
@@ -1518,6 +1856,9 @@
         var item = rt.items[rt.index];
         if (item.type === 'pause') {
             eng.duck(false);
+            rt.currentItem = item;
+            rt.currentText = '停顿 ' + Math.max(0, _num(item.seconds, 0)) + ' 秒';
+            rt.currentHost = '';
             var seconds = Math.max(0, _num(item.seconds, 0));
             rt.pauseUntil = Date.now() + seconds * 1000;
             rt.pauseTimer = TOP.setInterval(function() {
@@ -1539,6 +1880,11 @@
             prefetchContinuous(rt);
             return;
         }
+        if (item.skipMapped) {
+            rt.index++;
+            playContinuousNext(rt);
+            return;
+        }
         prefetchContinuous(rt);
         if (!item.url && !item.error) {
             rt.waitingFor = item.id;
@@ -1552,6 +1898,9 @@
         }
         try {
             var cap = item.firstPart ? _popup((item.host ? item.host + '：' : '') + (item.displayText || item.ttsText)) : null;
+            rt.currentItem = item;
+            rt.currentText = item.displayText || item.ttsText || '';
+            rt.currentHost = item.host || '';
             eng.duck(true);
             var audio = new TOP.Audio(item.url);
             audio.__vnmContinuous = true;
@@ -1562,6 +1911,12 @@
                 eng.duck(false);
                 if (cap) cap.close();
                 rt.audio = null;
+                if (item.urls && item.mappedIndex + 1 < item.urls.length) {
+                    item.mappedIndex++;
+                    item.url = item.urls[item.mappedIndex].url;
+                    playContinuousNext(rt);
+                    return;
+                }
                 if (rt.stopAfterCurrent) {
                     rt.stopped = true;
                     v3.continuousRuntime = null;
@@ -1586,10 +1941,11 @@
         }
     }
 
-    v3.playContinuous = function(id) {
+    v3.playContinuous = function(id, options) {
+        options = options || {};
         var version = v3.continuousById(id);
         if (!version) return;
-        v3.stopContinuous();
+        v3.stopContinuous(!!options.preserveSequence);
         v3.state.mode = 'companion';
         try {
             if (eng.voice) {
@@ -1610,6 +1966,10 @@
             stopped: false,
             finished: false,
             waitingFor: '',
+            paused: false,
+            currentItem: null,
+            currentText: '',
+            currentHost: '',
             nextTriggerIndex: nextCompanionTriggerIndex(runtimeList),
             nextRequested: false,
             nextPending: false,
@@ -1623,17 +1983,90 @@
         v3.uiRefresh();
     };
 
-    v3.stopContinuous = function() {
+    v3.playContinuousSequence = function(ids) {
+        ids = (ids || []).filter(function(id) { return !!v3.continuousById(id); });
+        if (!ids.length) return false;
+        v3.continuousSequence = { ids: ids.slice(), index: 0 };
+        v3.playContinuous(ids[0], { preserveSequence: true });
+        return true;
+    };
+
+    v3.pauseContinuous = function() {
         var rt = v3.continuousRuntime;
+        if (!rt || rt.stopped || rt.paused) return false;
+        rt.paused = true;
+        if (rt.pauseTimer) {
+            TOP.clearInterval(rt.pauseTimer);
+            rt.pauseTimer = null;
+            rt.pauseRemainingMs = Math.max(0, rt.pauseUntil - Date.now());
+        }
+        try { if (rt.audio) rt.audio.pause(); } catch (e) {}
+        eng.duck(false);
+        v3.uiRefresh();
+        return true;
+    };
+
+    v3.resumeContinuous = function() {
+        var rt = v3.continuousRuntime;
+        if (!rt || rt.stopped || !rt.paused) return false;
+        rt.paused = false;
+        if (rt.currentItem && rt.currentItem.type === 'pause') {
+            rt.pauseUntil = Date.now() + Math.max(0, rt.pauseRemainingMs || rt.pauseRemaining * 1000 || 0);
+            rt.pauseTimer = TOP.setInterval(function() {
+                if (rt.stopped || rt.paused) return;
+                rt.pauseRemaining = Math.max(0, Math.ceil((rt.pauseUntil - Date.now()) / 1000));
+                v3.uiRefresh();
+                if (Date.now() >= rt.pauseUntil) {
+                    TOP.clearInterval(rt.pauseTimer);
+                    rt.pauseTimer = null;
+                    rt.pauseRemaining = 0;
+                    rt.index++;
+                    playContinuousNext(rt);
+                }
+            }, 250);
+        } else if (rt.audio) {
+            eng.duck(true);
+            try { rt.audio.play(); } catch (e) {}
+        } else {
+            playContinuousNext(rt);
+        }
+        v3.uiRefresh();
+        return true;
+    };
+
+    v3.currentContinuousLine = function() {
+        var rt = v3.continuousRuntime;
+        if (!rt || rt.stopped) return null;
+        return {
+            versionId: rt.versionId,
+            versionTitle: rt.version && rt.version.title || '',
+            host: rt.currentHost || '',
+            text: rt.currentText || '',
+            paused: !!rt.paused,
+            finished: !!rt.finished,
+            waiting: !!rt.waitingForNext
+        };
+    };
+
+    v3.stopContinuous = function(preserveSequence) {
+        var rt = v3.continuousRuntime;
+        if (!preserveSequence) v3.continuousSequence = null;
         if (!rt) return;
         rt.stopped = true;
         try { if (rt.pauseTimer) TOP.clearInterval(rt.pauseTimer); } catch (e) {}
         try { if (rt.audio) rt.audio.pause(); } catch (e2) {}
         if (eng.voice === rt.audio) eng.voice = null;
         (rt.items || []).forEach(function(item) {
-            if (!item || !item.cachedObjectUrl) return;
-            try { (TOP.URL || URL).revokeObjectURL(item.cachedObjectUrl); } catch (e3) {}
-            item.cachedObjectUrl = '';
+            if (!item) return;
+            if (item.cachedObjectUrl) {
+                try { (TOP.URL || URL).revokeObjectURL(item.cachedObjectUrl); } catch (e3) {}
+                item.cachedObjectUrl = '';
+            }
+            (item.urls || []).forEach(function(row) {
+                if (row && row.objectUrl) {
+                    try { (TOP.URL || URL).revokeObjectURL(row.url); } catch (e4) {}
+                }
+            });
         });
         eng.duck(false);
         v3.continuousRuntime = null;
@@ -1902,66 +2335,24 @@
             return;
         }
         version.audioCacheEnabled = true;
-        version.audioFiles = version.audioFiles || {};
-        var rootHandle = null, scriptDir = null;
-        getCacheDirectory(true).then(function(handle) {
-            rootHandle = handle;
-            if (!rootHandle) return null;
-            version.audioDirectoryFolder = safeFilePart((version.title || '连续台本') + '-' + version.id.slice(-8));
-            return rootHandle.getDirectoryHandle(version.audioDirectoryFolder, { create: true }).then(function(dir) {
-                scriptDir = dir;
-                return dir;
-            });
-        }).then(function() {
+        TOP.Promise.resolve().then(function() {
             var index = 0;
             function next() {
                 if (index >= speechItems.length) {
-                    var manifest = {
-                        version: 1,
-                        scriptId: version.id,
-                        title: version.title || '连续台本',
-                        createdAt: new Date().toISOString(),
-                        splitMode: cfg.v3TtsSplitMode === 'chars' ? 'chars' : 'pause',
-                        items: allItems.map(function(item) {
-                            if (item.type === 'pause') return { type: 'pause', seconds: item.seconds };
-                            return {
-                                type: 'speech',
-                                id: item.id,
-                                host: item.host,
-                                ttsText: item.ttsText,
-                                displayText: item.displayText,
-                                cacheKey: item.cacheKey,
-                                file: version.audioFiles[item.cacheKey] || ''
-                            };
-                        })
-                    };
-                    var finish = TOP.Promise.resolve();
-                    if (scriptDir) {
-                        finish = writeBlobFile(scriptDir, 'manifest.json', new TOP.Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' }));
-                    }
-                    finish.then(function() {
-                        version.audioCacheComplete = true;
-                        version.audioCacheCount = speechItems.length;
-                        version.audioCachedAt = Date.now();
-                        v3.save();
-                        v3.uiRefresh();
-                        done && done(null, {
-                            count: speechItems.length,
-                            directory: version.audioDirectoryFolder || ''
-                        });
-                    }).catch(function(e) { done && done((e && e.message) || String(e)); });
+                    version.audioCacheComplete = true;
+                    version.audioCacheCount = speechItems.length;
+                    version.audioCachedAt = Date.now();
+                    delete version.audioDirectoryFolder;
+                    delete version.audioFiles;
+                    v3.save();
+                    v3.uiRefresh();
+                    done && done(null, { count: speechItems.length });
                     return;
                 }
                 var item = speechItems[index];
                 progress && progress(index + 1, speechItems.length, item);
                 function persist(blob) {
-                    return putCachedAudioBlob(version, item, blob).then(function() {
-                        if (!scriptDir) return;
-                        var seq = ('0000' + String(index + 1)).slice(-4);
-                        var fileName = seq + '-' + safeFilePart(item.host || 'host') + '.mp3';
-                        version.audioFiles[item.cacheKey] = fileName;
-                        return writeBlobFile(scriptDir, fileName, blob);
-                    });
+                    return putCachedAudioBlob(version, item, blob);
                 }
                 getCachedAudioBlob(version, item).then(function(blob) {
                     if (blob) return persist(blob);

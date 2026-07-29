@@ -1028,6 +1028,18 @@
         var runtime = v3.continuousRuntime;
         var playingThis = !!(version && runtime && runtime.versionId === version.id && !runtime.stopped);
         title.appendChild(V('vnr3-sub', version ? ((playingThis ? '正在播放 · ' : '') + version.title) : '这个歌单还没有完整台本'));
+        if (version) {
+            var rename = E('input', 'vnr3-input');
+            rename.value = version.title || '';
+            rename.placeholder = '台本名称';
+            rename.onchange = function() {
+                version.title = rename.value.trim() || '未命名台本';
+                version.edited = true;
+                v3.save();
+                refreshContinuous();
+            };
+            title.appendChild(rename);
+        }
         head.appendChild(title);
         var ops = V('vnr3-inline-ops');
         ops.appendChild(button('请求完整台本', function() {
@@ -1045,6 +1057,13 @@
         }));
         if (version) {
             ops.appendChild(button(playingThis ? '重新播放' : '整体播放', function() { v3.playContinuous(version.id); }));
+            if (playingThis) {
+                ops.appendChild(button(runtime.paused ? '继续播放台本' : '暂停台本', function() {
+                    if (runtime.paused) v3.resumeContinuous();
+                    else v3.pauseContinuous();
+                    refreshContinuous();
+                }, 'primary'));
+            }
             ops.appendChild(button('停止', function() { v3.stopContinuous(); }));
             ops.appendChild(button('原始数据', function() {
                 var rawModal = modal('台本原始数据');
@@ -1078,15 +1097,9 @@
         if (version) {
             var cacheBar = V('vnr3-library-cache');
             var cacheLabel = version.audioCacheComplete ?
-                ('已缓存 ' + _num(version.audioCacheCount, 0) + ' 段语音' + (version.audioDirectoryFolder ? ' · ' + version.audioDirectoryFolder : ' · 浏览器本地')) :
-                ('尚未完整缓存语音' + (v3.state.cacheDirectoryName ? ' · 目录：' + v3.state.cacheDirectoryName : ''));
+                ('已在浏览器本地缓存 ' + _num(version.audioCacheCount, 0) + ' 段语音') :
+                '尚未完整缓存语音';
             cacheBar.appendChild(V('vnr3-cache-badge', cacheLabel));
-            cacheBar.appendChild(button('选择缓存目录', function() {
-                v3.chooseCacheDirectory(function(err, name) {
-                    _toast(err || ('已选择目录：' + name));
-                    refreshContinuous();
-                });
-            }));
             cacheBar.appendChild(button(version.audioCacheComplete ? '重新检查并补全缓存' : '缓存完整语音', function() {
                 var p = modal('缓存完整语音');
                 var status = V('vnr3-hint', '准备分段请求并写入本地缓存…');
@@ -1096,14 +1109,14 @@
                     status.textContent = '正在缓存 ' + i + ' / ' + n;
                 }, function(err, result) {
                     status.textContent = err ? ('失败：' + err) :
-                        ('缓存完成，共 ' + result.count + ' 段' + (result.directory ? '，已写入目录 ' + result.directory : '，保存在浏览器本地'));
+                        ('缓存完成，共 ' + result.count + ' 段，已保存在浏览器本地');
                     refreshContinuous();
                 });
             }, 'primary'));
             if (version.audioCacheKeys && version.audioCacheKeys.length) {
                 cacheBar.appendChild(button('清除应用内缓存', function() {
                     v3.clearContinuousCache(version.id, function(err) {
-                        _toast(err || '应用内语音缓存已清除；电脑目录中的文件未删除');
+                        _toast(err || '本地语音缓存已清除');
                         refreshContinuous();
                     });
                 }));
@@ -1127,12 +1140,93 @@
                 refreshContinuous();
             };
             box.appendChild(versionSelect);
+            var playlistBox = V('vnr3-speech-node');
+            playlistBox.appendChild(V('vnr3-title', '历史台本播放列表'));
+            playlistBox.appendChild(V('vnr3-hint', '可播放全部历史版本，或勾选几个版本按当前顺序连续播放。播放期间歌曲自带台本不会朗读。'));
+            var selectedMap = v3.state.scriptPlaylistSelection[pl.id] || (v3.state.scriptPlaylistSelection[pl.id] = {});
+            versions.forEach(function(item, index) {
+                var row = V('vnr3-node-ops');
+                var check = E('input', ''); check.type = 'checkbox'; check.checked = !!selectedMap[item.id];
+                check.onchange = function() {
+                    selectedMap[item.id] = check.checked;
+                    v3.save();
+                };
+                row.appendChild(check);
+                row.appendChild(V('', (index + 1) + '. ' + (item.title || '未命名台本')));
+                playlistBox.appendChild(row);
+            });
+            var playOps = V('vnr3-node-ops');
+            playOps.appendChild(button('播放全部历史台本', function() {
+                v3.playContinuousSequence(versions.map(function(item) { return item.id; }));
+                refreshContinuous();
+            }, 'primary'));
+            playOps.appendChild(button('播放勾选的台本', function() {
+                var ids = versions.filter(function(item) { return !!selectedMap[item.id]; }).map(function(item) { return item.id; });
+                if (!ids.length) { _toast('请先勾选至少一个台本版本'); return; }
+                v3.playContinuousSequence(ids);
+                refreshContinuous();
+            }));
+            playOps.appendChild(button('清空勾选', function() {
+                v3.state.scriptPlaylistSelection[pl.id] = {};
+                v3.save();
+                refreshContinuous();
+            }));
+            playlistBox.appendChild(playOps);
+            box.appendChild(playlistBox);
         }
         if (!version) {
             box.appendChild(V('vnr2-empty', '这个歌单还没有完整台本。可以请求 AI 生成，也可以新建空白台本后自己编辑。'));
             return;
         }
         var nodes = version.nodes || [];
+        var audioDetails = E('details', 'vnr3-speech-node');
+        var audioSummary = E('summary', 'vnr3-title', '音频匹配设置 · ' + ((version.audioAssets || []).length) + ' 个音频');
+        audioDetails.appendChild(audioSummary);
+        audioDetails.appendChild(V('vnr3-hint', '支持一次上传多个文件或粘贴多个音频 URL。文件名中的段落序号会自动匹配；改台本名称不会破坏已有匹配。一个音频可勾选多个段落，每段也可关联多个音频。'));
+        var fileInput = E('input', 'vnr3-input');
+        fileInput.type = 'file';
+        fileInput.accept = 'audio/*';
+        fileInput.multiple = true;
+        fileInput.onchange = function() {
+            v3.addAudioFiles(version.id, fileInput.files, function(err, added) {
+                _toast(err || ('已添加 ' + added.length + ' 个音频'));
+                refreshContinuous();
+            });
+        };
+        audioDetails.appendChild(fileInput);
+        var urlInput = E('textarea', 'vnr3-node-text');
+        urlInput.placeholder = '每行一个音频 URL';
+        audioDetails.appendChild(urlInput);
+        audioDetails.appendChild(button('添加音频 URL', function() {
+            v3.addAudioUrls(version.id, urlInput.value.split(/\n+/), function(err, added) {
+                _toast(err || ('已添加 ' + added.length + ' 个 URL 音频'));
+                refreshContinuous();
+            });
+        }));
+        var speechOnly = nodes.filter(function(node) { return node.type !== 'pause'; });
+        (version.audioAssets || []).forEach(function(asset) {
+            var assetCard = V('vnr3-speech-node');
+            assetCard.appendChild(V('vnr3-sub', (asset.kind === 'url' ? 'URL · ' : '本地文件 · ') + asset.name));
+            speechOnly.forEach(function(node, nodeIndex) {
+                var row = V('vnr3-node-ops');
+                var check = E('input', ''); check.type = 'checkbox';
+                check.checked = !!(version.segmentAudioMap[node.id] || []).some(function(id) { return id === asset.id; });
+                check.onchange = function() {
+                    var ids = speechOnly.filter(function(candidate) {
+                        return candidate === node ? check.checked : !!(version.segmentAudioMap[candidate.id] || []).some(function(id) { return id === asset.id; });
+                    }).map(function(candidate) { return candidate.id; });
+                    v3.setAudioAssetSegments(version.id, asset.id, ids);
+                };
+                row.appendChild(check);
+                row.appendChild(V('', '第 ' + (nodeIndex + 1) + ' 段 · ' + String(node.displayText || node.ttsText || '').slice(0, 48)));
+                assetCard.appendChild(row);
+            });
+            assetCard.appendChild(button('删除这个音频', function() {
+                v3.deleteAudioAsset(version.id, asset.id, function() { refreshContinuous(); });
+            }, 'danger'));
+            audioDetails.appendChild(assetCard);
+        });
+        box.appendChild(audioDetails);
         var list = V('vnr3-node-list');
         nodes.forEach(function(node, index) {
             if (node.type === 'pause') {
