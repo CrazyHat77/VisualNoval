@@ -3,10 +3,10 @@
  * It deliberately uses ES5 syntax because the radio runs inside SillyTavern webviews.
  */
 (function vnr3InstallCore() {
-    if (eng.v3 && eng.v3.version >= 3.93) return;
+    if (eng.v3 && eng.v3.version >= 3.94) return;
 
     var v3 = eng.v3 = {
-        version: 3.93,
+        version: 3.94,
         audio: {},
         continuousRuntime: null,
         sleepTimer: null,
@@ -2035,6 +2035,9 @@
         var sentences = item.captionSentences || [];
         if (!sentences.length) sentences = [item.displayText || item.ttsText || ''];
         rt.currentText = sentences[0] || '';
+        if (rt.captionPopup && rt.captionPopup.setText) {
+            rt.captionPopup.setText((item.host ? item.host + '：' : '') + rt.currentText);
+        }
         if (sentences.length < 2) return;
         var weights = [], total = 0;
         sentences.forEach(function(sentence) {
@@ -2057,6 +2060,9 @@
                 if (target <= sum) break;
             }
             rt.currentText = sentences[index] || sentences[sentences.length - 1] || '';
+            if (rt.captionPopup && rt.captionPopup.setText) {
+                rt.captionPopup.setText((item.host ? item.host + '：' : '') + rt.currentText);
+            }
         }, 180);
     }
 
@@ -2182,10 +2188,13 @@
             return;
         }
         try {
-            var cap = item.firstPart ? _popup((item.host ? item.host + '：' : '') + (item.displayText || item.ttsText)) : null;
+            var firstCaption = item.captionSentences && item.captionSentences.length ?
+                item.captionSentences[0] : (item.displayText || item.ttsText);
+            var cap = item.firstPart ? _popup((item.host ? item.host + '：' : '') + firstCaption) : null;
             rt.currentItem = item;
             rt.currentText = item.displayText || item.ttsText || '';
             rt.currentHost = item.host || '';
+            rt.captionPopup = cap;
             eng.duck(true);
             var audio = new TOP.Audio(item.url);
             audio.__vnmContinuous = true;
@@ -2196,7 +2205,9 @@
             audio.onended = function() {
                 eng.duck(false);
                 if (cap) cap.close();
+                if (rt.captionPopup === cap) rt.captionPopup = null;
                 clearCaptionTimer(rt);
+                if (eng.voice === audio) eng.voice = null;
                 rt.audio = null;
                 if (item.urls && item.mappedIndex + 1 < item.urls.length) {
                     item.mappedIndex++;
@@ -2217,7 +2228,9 @@
             audio.onerror = function() {
                 eng.duck(false);
                 if (cap) cap.close();
+                if (rt.captionPopup === cap) rt.captionPopup = null;
                 clearCaptionTimer(rt);
+                if (eng.voice === audio) eng.voice = null;
                 rt.audio = null;
                 rt.index++;
                 playContinuousNext(rt);
@@ -2346,9 +2359,12 @@
     v3.currentContinuousLine = function() {
         var rt = v3.continuousRuntime;
         if (!rt || rt.stopped) return null;
+        var playlist = v3.playlist(rt.version && rt.version.playlistId || 'now-playing');
         return {
             versionId: rt.versionId,
             versionTitle: rt.version && rt.version.title || '',
+            playlistId: rt.version && rt.version.playlistId || 'now-playing',
+            playlistName: playlist && playlist.name || '当前播放列表',
             host: rt.currentHost || '',
             text: rt.currentText || '',
             paused: !!rt.paused,
@@ -2365,6 +2381,8 @@
         try { if (rt.pauseTimer) TOP.clearInterval(rt.pauseTimer); } catch (e) {}
         try { if (rt.hostGapTimer) TOP.clearInterval(rt.hostGapTimer); } catch (e1) {}
         clearCaptionTimer(rt);
+        try { if (rt.captionPopup) rt.captionPopup.close(); } catch (eCaption) {}
+        rt.captionPopup = null;
         try { if (rt.audio) rt.audio.pause(); } catch (e2) {}
         if (eng.voice === rt.audio) eng.voice = null;
         (rt.items || []).forEach(function(item) {
@@ -2505,6 +2523,7 @@
     function advancedKey(song) {
         return song && (song.id || songKey(song));
     }
+    v3.backgroundKey = advancedKey;
 
     function backgroundBaseVolume(adv) {
         adv = adv || {};
@@ -2547,6 +2566,18 @@
         song = song || {};
         var k = advancedKey(song);
         if (!k || !song.url) return;
+        var existing = v3.audio[k];
+        if (existing && existing.audio) {
+            try {
+                existing.audio.play();
+                existing.paused = false;
+                existing.masterPaused = false;
+                v3.state.backgroundSelection[k] = true;
+                v3.save();
+                v3.uiRefresh();
+                return;
+            } catch (resumeError) {}
+        }
         v3.stopBackground(k);
         try {
             var a = new TOP.Audio(song.url);
@@ -2561,7 +2592,7 @@
                 v3.uiRefresh();
             };
             a.play();
-            v3.audio[k] = { audio: a, song: song };
+            v3.audio[k] = { audio: a, song: song, paused: false, masterPaused: false };
             v3.state.backgroundSelection[k] = true;
             v3.state.backgroundChecked[k] = true;
             adv.error = '';
@@ -2571,6 +2602,39 @@
             song.advanced.error = (e && e.message) || '播放失败';
             v3.uiRefresh();
         }
+    };
+
+    v3.backgroundIsPlaying = function(key) {
+        var rec = v3.audio[key];
+        return !!(rec && rec.audio && !rec.audio.paused && !rec.paused);
+    };
+
+    v3.pauseBackground = function(key, master, silent) {
+        var rec = v3.audio[key];
+        if (!rec || !rec.audio) return false;
+        try { rec.audio.pause(); } catch (e) {}
+        rec.paused = true;
+        rec.masterPaused = !!master;
+        v3.state.backgroundSelection[key] = false;
+        if (!silent) {
+            v3.save();
+            v3.uiRefresh();
+        }
+        return true;
+    };
+
+    v3.resumeBackground = function(key, master, silent) {
+        var rec = v3.audio[key];
+        if (!rec || !rec.audio) return false;
+        try { rec.audio.play(); } catch (e) { return false; }
+        rec.paused = false;
+        rec.masterPaused = false;
+        v3.state.backgroundSelection[key] = true;
+        if (!silent) {
+            v3.save();
+            v3.uiRefresh();
+        }
+        return true;
     };
 
     v3.stopBackground = function(key) {
@@ -2592,6 +2656,67 @@
 
     v3.stopAllBackgrounds = function() {
         Object.keys(v3.audio).forEach(function(k) { v3.stopBackground(k); });
+    };
+
+    /* 主播放键的图标始终由歌曲状态决定。辅助声道只跟随总暂停/继续，
+       各自单独开启或暂停不会反向改变歌曲按钮。 */
+    v3.masterPauseSnapshot = v3.masterPauseSnapshot || { continuous: null, backgrounds: {} };
+    var playPauseMusicOnly = eng.playPause;
+    eng.playPause = function(note) {
+        var pausing = !!(eng.running && !eng.paused);
+        var rt = v3.continuousRuntime;
+        if (pausing) {
+            v3.masterPauseSnapshot = { continuous: null, backgrounds: {} };
+            if (rt && !rt.stopped && !rt.paused) {
+                v3.masterPauseSnapshot.continuous = rt;
+            }
+            Object.keys(v3.audio).forEach(function(key) {
+                if (v3.backgroundIsPlaying(key)) v3.masterPauseSnapshot.backgrounds[key] = true;
+            });
+            playPauseMusicOnly.apply(eng, arguments);
+            if (v3.masterPauseSnapshot.continuous === rt) v3.pauseContinuous();
+            Object.keys(v3.masterPauseSnapshot.backgrounds).forEach(function(key) {
+                v3.pauseBackground(key, true, true);
+            });
+            v3.save();
+            v3.uiRefresh();
+            return;
+        }
+
+        var continuousAudio = rt && rt.audio && eng.voice === rt.audio ? rt.audio : null;
+        if (continuousAudio) eng.voice = null;
+        try {
+            playPauseMusicOnly.apply(eng, arguments);
+        } finally {
+            if (continuousAudio && v3.continuousRuntime === rt && !rt.stopped) eng.voice = continuousAudio;
+        }
+        var snapshot = v3.masterPauseSnapshot || { continuous: null, backgrounds: {} };
+        if (snapshot.continuous && snapshot.continuous === v3.continuousRuntime && snapshot.continuous.paused) {
+            v3.resumeContinuous();
+        }
+        Object.keys(snapshot.backgrounds || {}).forEach(function(key) {
+            var rec = v3.audio[key];
+            if (rec && rec.masterPaused) v3.resumeBackground(key, true, true);
+        });
+        v3.masterPauseSnapshot = { continuous: null, backgrounds: {} };
+        v3.save();
+        v3.uiRefresh();
+    };
+
+    v3.toggleContinuousFromHostOrb = function() {
+        if (v3.state.mode !== 'companion') return false;
+        var rt = v3.continuousRuntime;
+        if (!rt || rt.stopped || rt.finished) return false;
+        if (rt.paused) {
+            v3.resumeContinuous();
+            if (v3.masterPauseSnapshot && v3.masterPauseSnapshot.continuous === rt) {
+                v3.masterPauseSnapshot.continuous = null;
+            }
+        } else {
+            v3.pauseContinuous();
+            if (v3.masterPauseSnapshot) v3.masterPauseSnapshot.continuous = null;
+        }
+        return true;
     };
 
     var oldDuck = eng.duck;

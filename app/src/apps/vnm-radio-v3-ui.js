@@ -42,7 +42,8 @@
         '.vnr3-node-head,.vnr3-persona-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}',
         '.vnr3-segment{display:flex;gap:6px;flex-wrap:wrap}.vnr3-segment .vnr3-btn.on{background:rgba(255,255,255,.18)}',
         '.vnr3-sc-action{appearance:none;border:0;background:transparent;color:inherit;display:inline-flex;align-items:center;gap:4px;padding:4px;border-radius:9px;cursor:pointer}.vnr3-sc-action:hover{background:rgba(255,255,255,.1)}.vnr3-sc-action svg{width:16px;height:16px}.vnr3-timer-label{font-size:9px;white-space:nowrap;opacity:.72}',
-        '.vnr3-bg-row{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:9px;align-items:center;padding:10px;border-radius:15px;background:rgba(255,255,255,.035)}.vnr3-bg-settings{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:8px}.vnr3-bg-settings .vnr3-field{margin:0}.vnr3-bg-row.error{opacity:.48}',
+        '.vnr3-bg-row{display:grid;grid-template-columns:22px minmax(0,1fr) auto auto;gap:9px;align-items:center;padding:10px;border-radius:15px;background:rgba(255,255,255,.035)}.vnr3-bg-settings{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:8px}.vnr3-bg-settings .vnr3-field{margin:0}.vnr3-bg-row.error{opacity:.48}',
+        '.vnr2-set{overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;pointer-events:auto}',
         '.vnr3-status-error{opacity:.55;text-decoration:line-through}.vnr3-persona{margin:12px 0}.vnr3-persona textarea{min-height:110px}',
         '.vnr3-script-layer{position:absolute;inset:34px 390px 82px;z-index:40;pointer-events:auto;display:flex;align-items:stretch;justify-content:center}.vnr3-script-window{width:100%;min-width:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(255,255,255,.14);border-radius:28px;background:rgba(34,37,44,.96);box-shadow:0 28px 90px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.09);backdrop-filter:blur(34px);-webkit-backdrop-filter:blur(34px)}',
         '.vnr3-script-window-head{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,.08)}.vnr3-script-window-title{font-size:20px;font-weight:680}.vnr3-script-window-sub{font-size:11px;opacity:.5;margin-top:3px}.vnr3-script-close{width:38px;height:38px;flex:0 0 38px;border:1px solid rgba(255,255,255,.12);border-radius:50%;background:rgba(255,255,255,.07);color:inherit;font-size:23px;cursor:pointer}.vnr3-script-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;padding:18px 20px 24px;user-select:text}.vnr3-script-body .vnr3-cont-head{padding:0 0 12px}.vnr3-script-body .vnr3-speech-node{background:rgba(255,255,255,.045);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}',
@@ -799,7 +800,7 @@
         if (!songs.length) m.card.appendChild(V('vnr2-empty', '暂无开启高级播放参数的音频。请在歌单中编辑歌曲并展开高级参数。'));
         var list = V('vnr3-preview-list');
         songs.forEach(function(song) {
-            var key = song.id || song.title;
+            var key = v3.backgroundKey ? v3.backgroundKey(song) : (song.id || song.title);
             var adv = song.advanced || {};
             var row = V('vnr3-bg-row' + (adv.error ? ' error' : ''));
             var ck = E('button', 'vnr3-check' + (v3.state.backgroundChecked[key] ? ' on' : ''));
@@ -814,12 +815,28 @@
             info.appendChild(V('vnr3-track-title', song.title));
             info.appendChild(V('vnr3-track-sub', adv.error ? adv.error : (song.artist || '独立音频')));
             row.appendChild(info);
-            var play = button(v3.audio[key] ? '停止' : '播放', function() {
-                if (v3.audio[key]) v3.stopBackground(key); else v3.playBackground(song);
-                play.textContent = v3.audio[key] ? '停止' : '播放';
-                ck.classList.toggle('on', !!v3.state.backgroundChecked[key]);
-            }, v3.audio[key] ? '' : 'primary');
+            row.setAttribute('data-vnr3-background-key', key);
+            var play = button('播放', function() {
+                v3.playBackground(song);
+                syncBackgroundRow();
+            });
             row.appendChild(play);
+            var pause = button('暂停', function() {
+                v3.pauseBackground(key, false);
+                if (v3.masterPauseSnapshot) delete v3.masterPauseSnapshot.backgrounds[key];
+                syncBackgroundRow();
+            });
+            row.appendChild(pause);
+            function syncBackgroundRow() {
+                var isPlaying = v3.backgroundIsPlaying(key);
+                play.classList.toggle('primary', !isPlaying);
+                pause.classList.toggle('primary', isPlaying);
+                play.disabled = isPlaying;
+                pause.disabled = !isPlaying;
+                ck.classList.toggle('on', !!v3.state.backgroundChecked[key]);
+            }
+            row.__vnr3SyncBackground = syncBackgroundRow;
+            syncBackgroundRow();
             var settings = V('vnr3-bg-settings');
             var legacyVolumeMode = adv.volumeMode || 'custom';
             var vm = selectField('背景音量', legacyVolumeMode, [
@@ -1362,6 +1379,14 @@
         if (u.view !== 'playlists' && u.view !== 'playlist-detail') {
             oldRenderMain();
             if (u.view === 'artist') augmentArtistShortPersona(main);
+            if (u.view === 'made') {
+                var madeScroller = main.querySelector('.vnr2-set');
+                if (madeScroller) {
+                    madeScroller.addEventListener('wheel', function(e) { e.stopPropagation(); }, { passive: true });
+                    madeScroller.addEventListener('touchmove', function(e) { e.stopPropagation(); }, { passive: true });
+                    madeScroller.addEventListener('pointerdown', function(e) { e.stopPropagation(); });
+                }
+            }
             restoreV3Scroll(u.view);
             vnr3RenderedView = u.view;
             return;
@@ -1390,7 +1415,22 @@
 
     var oldRenderBottomBar = renderBottomBar;
     renderBottomBar = function() {
+        var oldAlbumImage = bbar.querySelector('.vnr2-songcard img');
+        var oldAlbumKey = oldAlbumImage && oldAlbumImage.__vnrSongKey || '';
+        var oldAlbumSrc = oldAlbumImage && (oldAlbumImage.currentSrc || oldAlbumImage.src) || '';
         oldRenderBottomBar();
+        var currentAlbumKey = _songKey(curSong()) || '';
+        if (bbImg) {
+            bbImg.__k = currentAlbumKey;
+            bbImg.__vnrSongKey = currentAlbumKey;
+            if (oldAlbumSrc && oldAlbumKey === currentAlbumKey) {
+                bbImg.src = oldAlbumSrc;
+            } else {
+                _fetchPic(curSong(), function(url) {
+                    if (bbImg && bbImg.__vnrSongKey === currentAlbumKey && url && bbImg.src !== url) bbImg.src = url;
+                });
+            }
+        }
         var buttons = bbar.querySelectorAll('.vnr2-bb48');
         if (buttons[0]) {
             buttons[0].title = '按当前模式请求';
@@ -1438,6 +1478,9 @@
     try {
         TOP.addEventListener('vnm-radio-v3-refresh', function() {
             try {
+                stage.querySelectorAll('.vnr3-bg-row').forEach(function(row) {
+                    if (row && typeof row.__vnr3SyncBackground === 'function') row.__vnr3SyncBackground();
+                });
                 if (u.mode === 'studio') {
                     renderBottomBar();
                     if (/^(playlists|playlist-detail)$/.test(u.view || '')) renderMain();
