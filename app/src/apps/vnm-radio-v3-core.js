@@ -3,10 +3,10 @@
  * It deliberately uses ES5 syntax because the radio runs inside SillyTavern webviews.
  */
 (function vnr3InstallCore() {
-    if (eng.v3 && eng.v3.version >= 3.91) return;
+    if (eng.v3 && eng.v3.version >= 3.92) return;
 
     var v3 = eng.v3 = {
-        version: 3.91,
+        version: 3.92,
         audio: {},
         continuousRuntime: null,
         sleepTimer: null,
@@ -711,7 +711,6 @@
         '【电台聊天总结】',
         '{{聊天总结}}',
         '',
-        '【最近主播对话】',
         '{{最近主播对话}}',
         '',
         '【用户本次要求】',
@@ -748,6 +747,7 @@
         });
         var list = [
             { group: '请求模式', key: 'v3ShortPersonaEnabled', type: 'toggle', label: '使用 Artist 中设置的电台简短人设', default: false },
+            { group: '请求模式', key: 'v3OmitRecentHostTalk', type: 'toggle', label: '不发送电台前文（最近主播对话）', default: false },
             { group: '请求模式', key: 'v3CompanionAutoRequest', type: 'toggle', label: '自动请求新台本（陪伴模式）', default: true },
             { group: '请求模式', key: 'v3CompanionWords', type: 'number', label: '陪伴模式目标字数', default: 3000, min: 300, max: 20000, step: 100 },
             { group: '请求模式', key: 'v3PauseMinCount', type: 'number', label: '连续台本最少停顿节点', default: 3, min: 0, max: 100 },
@@ -790,9 +790,73 @@
             cfg.v3CompanionAutoRequest = true;
             cfg.v3CompanionAutoRequestDefaultV2 = true;
         }
+        function normalizeRecentTalkSlot(text) {
+            return String(text || '').replace(/【最近主播对话】\s*\{\{最近主播对话\}\}/g, '{{最近主播对话}}');
+        }
+        FIELDS.forEach(function(fieldDef) {
+            if (!fieldDef) return;
+            if (typeof fieldDef["default"] === 'string' && fieldDef["default"].indexOf('{{最近主播对话}}') >= 0) {
+                fieldDef["default"] = normalizeRecentTalkSlot(fieldDef["default"]);
+            }
+            if (fieldDef.key && typeof cfg[fieldDef.key] === 'string' && cfg[fieldDef.key].indexOf('{{最近主播对话}}') >= 0) {
+                cfg[fieldDef.key] = normalizeRecentTalkSlot(cfg[fieldDef.key]);
+            }
+        });
         _saveCfg();
     }
     addFields();
+
+    _recentRadioTalk = function(limit) {
+        if (bool(cfg.v3OmitRecentHostTalk, false)) return '';
+        limit = _num(limit, cfg.recommendChatMessages === undefined ? 6 : cfg.recommendChatMessages);
+        var history = (eng.store && eng.store.chatHistory) || [];
+        if (!history.length || limit <= 0) return '';
+        var body = history.slice(-limit).map(function(message) {
+            return (message.role === 'user' ? '用户' : '主播') + ': ' + (message.display || message.content || '');
+        }).filter(function(line) { return !!String(line || '').trim(); }).join('\n');
+        return body ? '【最近主播对话】\n' + body : '';
+    };
+
+    if (eng.request && !eng.request.__vnrRouteDebugWrapped) {
+        var requestWithRouteSource = eng.request;
+        var requestWithRoute = function(note, done, label, type) {
+            var routeDebug = {
+                route: 'eng.request',
+                mode: v3.state.mode,
+                requestType: type || 'request',
+                label: label || '请求曲目+台本',
+                omitRecentHostTalk: bool(cfg.v3OmitRecentHostTalk, false),
+                recentHostTalkChars: _recentRadioTalk(cfg.recommendChatMessages).length,
+                startedAt: new Date().toISOString()
+            };
+            eng.lastApiRoute = routeDebug;
+            try { TOP.__vnmRadioLastRoute = routeDebug; } catch (e) {}
+            try { TOP.localStorage.setItem('vnm-radio-last-route-debug', JSON.stringify(routeDebug)); } catch (e2) {}
+            return requestWithRouteSource.apply(eng, arguments);
+        };
+        requestWithRoute.__vnrRouteDebugWrapped = true;
+        eng.request = requestWithRoute;
+    }
+    if (eng.sendChat && !eng.sendChat.__vnrRouteDebugWrapped) {
+        var sendChatWithRouteSource = eng.sendChat;
+        var sendChatWithRoute = function(text, retry) {
+            var routeDebug = {
+                route: 'eng.sendChat',
+                mode: v3.state.mode,
+                retry: !!retry,
+                label: '主播连线聊天',
+                omitRecentHostTalk: bool(cfg.v3OmitRecentHostTalk, false),
+                recentHostTalkChars: _recentRadioTalk(cfg.recommendChatMessages).length,
+                startedAt: new Date().toISOString()
+            };
+            eng.lastApiRoute = routeDebug;
+            try { TOP.__vnmRadioLastRoute = routeDebug; } catch (e) {}
+            try { TOP.localStorage.setItem('vnm-radio-last-route-debug', JSON.stringify(routeDebug)); } catch (e2) {}
+            return sendChatWithRouteSource.apply(eng, arguments);
+        };
+        sendChatWithRoute.__vnrRouteDebugWrapped = true;
+        eng.sendChat = sendChatWithRoute;
+    }
 
     var oldBuildCommon = _buildCommon;
     _buildCommon = function(tpl, extra) {
@@ -1073,17 +1137,47 @@
     TOP._vnmRadioDiagnoseCompanion = function() {
         var api = TOP.__vnmRadioLastApi || null;
         var parser = TOP.__vnmRadioLastCompanionDebug || null;
+        var route = TOP.__vnmRadioLastRoute || null;
         try { if (!api) api = JSON.parse(TOP.localStorage.getItem('vnm-radio-last-api-debug') || 'null'); } catch (e) {}
         try { if (!parser) parser = JSON.parse(TOP.localStorage.getItem('vnm-radio-last-companion-debug') || 'null'); } catch (e2) {}
+        try { if (!route) route = JSON.parse(TOP.localStorage.getItem('vnm-radio-last-route-debug') || 'null'); } catch (eRoute) {}
         var response = null, content = parser && parser.content || '';
         try {
             response = api && api.responseText ? JSON.parse(api.responseText) : null;
             if (!content) content = response && response.choices && response.choices[0] && response.choices[0].message && response.choices[0].message.content || '';
         } catch (e3) {}
+        var responseContent = response && response.choices && response.choices[0] && response.choices[0].message && response.choices[0].message.content || '';
+        var parserWasMissingOrStale = !parser || (responseContent && String(parser.content || '') !== String(responseContent));
+        if (parserWasMissingOrStale && responseContent) {
+            parser = { source: 'diagnostic-reparse', content: String(responseContent), contentChars: String(responseContent).length };
+            try {
+                parser.nodes = parseCompanion(responseContent, parser);
+            } catch (reparseError) {
+                parser.nodes = [];
+                parser.failureReason = '诊断重新解析抛出异常：' + (reparseError && reparseError.message || String(reparseError));
+            }
+            parser.originalParserWasMissingOrStale = true;
+            recordCompanionDebug(parser);
+            content = responseContent;
+        }
         var choice = response && response.choices && response.choices[0] || {};
+        var parsedContent = _jsonFromText(responseContent);
+        var firstReturnedItem = Object.prototype.toString.call(parsedContent) === '[object Array]' ? parsedContent[0] :
+            parsedContent && (parsedContent.nodes || parsedContent.items || parsedContent.scripts || parsedContent.songs || [])[0];
+        var formatDiagnosis = '';
+        if (route && route.route === 'eng.request' && firstReturnedItem && firstReturnedItem.type === 'speech' &&
+            !(firstReturnedItem.title || firstReturnedItem.song || firstReturnedItem.music || firstReturnedItem.track)) {
+            formatDiagnosis = '请求实际走的是推荐模式 eng.request，但模型返回了陪伴模式 speech 数组；推荐模式需要歌曲 items/title/artist，所以应用会判定格式不符合。';
+        } else if (route && route.route === 'eng.sendChat') {
+            formatDiagnosis = '请求实际走的是 Songs 主页的“主播连线聊天”，这条入口只增加聊天消息，不会创建新的连续台本。要生成历史台本，请使用陪伴模式的请求按钮或台本库里的“请求完整台本”。';
+        } else if (parser && parser.originalParserWasMissingOrStale && parser.playableNodeCount > 0) {
+            formatDiagnosis = '原诊断缺少或错配了解析记录；本次已用同一份完整 content 重新解析成功。请刷新/重载新版 Radio 后再请求一次。';
+        } else if (parser && parser.failureReason) {
+            formatDiagnosis = parser.failureReason;
+        }
         var report = {
             conclusion: api && api.httpStatus === 200 && choice.finish_reason === 'stop' ?
-                'API 正常完整返回；若应用仍报失败，请重点看 parser.failureReason / ignoredNodes。' :
+                ('API 正常完整返回。' + (formatDiagnosis ? ' ' + formatDiagnosis : '若应用仍报失败，请重点看 parser.failureReason / ignoredNodes。')) :
                 '请结合 HTTP 状态、finish_reason、providerError 与 parser.failureReason 判断。',
             api: {
                 state: api && api.state,
@@ -1096,6 +1190,8 @@
                 usage: response && response.usage || null,
                 providerError: response && response.error || api && api.error || ''
             },
+            route: route,
+            formatDiagnosis: formatDiagnosis,
             parser: parser,
             fullContent: String(content || ''),
             rawResponseText: api && api.responseText || ''
@@ -1126,16 +1222,41 @@
             pauseSecondsRequirement: pauseRules.seconds,
             outputRequirement: '最终只返回合法 JSON：' + output
         });
+        var routeDebug = {
+            route: 'v3.requestCompanion',
+            mode: v3.state.mode,
+            manual: !!manual,
+            playImmediately: options.play !== false,
+            playlistId: options.playlistId || (v3.currentPlaylist() || {}).id || 'now-playing',
+            omitRecentHostTalk: bool(cfg.v3OmitRecentHostTalk, false),
+            recentHostTalkChars: _recentRadioTalk(cfg.recommendChatMessages).length,
+            startedAt: new Date().toISOString()
+        };
+        eng.lastApiRoute = routeDebug;
+        try { TOP.__vnmRadioLastRoute = routeDebug; } catch (eRoute) {}
+        try { TOP.localStorage.setItem('vnm-radio-last-route-debug', JSON.stringify(routeDebug)); } catch (eRouteStore) {}
+        recordCompanionDebug({
+            source: 'request-start',
+            route: routeDebug,
+            request: { targetWords: words, systemPromptChars: prompt.length, userPromptChars: 10 }
+        });
         _setApiStatus('loading', 'v3-companion', '请求连续台本', '', '');
         _chat([{ role: 'system', content: prompt }, { role: 'user', content: '请生成连续陪伴台本。' }], function(text) {
             eng.busy = false;
             var companionDebug = {
                 source: 'request-success',
+                route: routeDebug,
                 request: { targetWords: words, systemPromptChars: prompt.length, userPromptChars: 10 },
                 content: String(text || ''),
                 contentChars: String(text || '').length
             };
-            var nodes = parseCompanion(text, companionDebug);
+            var nodes = [];
+            try {
+                nodes = parseCompanion(text, companionDebug);
+            } catch (parseError) {
+                companionDebug.failureReason = '陪伴台本解析抛出异常：' + (parseError && parseError.message || String(parseError));
+                companionDebug.parseException = parseError && parseError.stack || String(parseError);
+            }
             recordCompanionDebug(companionDebug);
             if (!nodes.length) {
                 _setApiStatus('error', 'v3-companion', '请求连续台本', '返回中没有可播放节点', '');
@@ -1181,6 +1302,7 @@
             eng.busy = false;
             recordCompanionDebug({
                 source: 'request-error',
+                route: routeDebug,
                 request: { targetWords: words, systemPromptChars: prompt.length, userPromptChars: 10 },
                 providerError: e && e.message || String(e || '未知错误')
             });
