@@ -46,6 +46,7 @@
         '.vnr3-status-error{opacity:.55;text-decoration:line-through}.vnr3-persona{margin:12px 0}.vnr3-persona textarea{min-height:110px}',
         '.vnr3-script-layer{position:absolute;inset:34px 390px 82px;z-index:40;pointer-events:auto;display:flex;align-items:stretch;justify-content:center}.vnr3-script-window{width:100%;min-width:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(255,255,255,.14);border-radius:28px;background:rgba(34,37,44,.96);box-shadow:0 28px 90px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.09);backdrop-filter:blur(34px);-webkit-backdrop-filter:blur(34px)}',
         '.vnr3-script-window-head{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,.08)}.vnr3-script-window-title{font-size:20px;font-weight:680}.vnr3-script-window-sub{font-size:11px;opacity:.5;margin-top:3px}.vnr3-script-close{width:38px;height:38px;flex:0 0 38px;border:1px solid rgba(255,255,255,.12);border-radius:50%;background:rgba(255,255,255,.07);color:inherit;font-size:23px;cursor:pointer}.vnr3-script-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;padding:18px 20px 24px;user-select:text}.vnr3-script-body .vnr3-cont-head{padding:0 0 12px}.vnr3-script-body .vnr3-speech-node{background:rgba(255,255,255,.045);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}',
+        '.vnr3-library-toolbar{display:grid;grid-template-columns:auto minmax(180px,320px);gap:12px;align-items:end;margin-bottom:18px}.vnr3-library-toolbar .vnr3-field{margin:0}.vnr3-library-cache{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 0 14px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:14px}.vnr3-queue-script{display:grid;gap:9px;margin-bottom:12px}.vnr3-queue-script-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.vnr3-cache-badge{font-size:11px;opacity:.62}',
         '@media(max-width:720px){.vnr3-shade{align-items:flex-end;padding:0}.vnr3-modal{width:100%;max-height:88vh;border-radius:26px 26px 0 0;padding:18px 16px 24px}.vnr3-toolbar{align-items:stretch;flex-direction:column}.vnr3-search{max-width:none}.vnr3-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.vnr3-detail-head{grid-template-columns:94px 1fr;gap:14px;align-items:center}.vnr3-detail-title{font-size:20px}.vnr3-inline-ops{grid-column:1/-1}.vnr3-song-row{grid-template-columns:minmax(0,1fr)}.vnr3-track{grid-template-columns:24px 38px minmax(0,1fr) auto auto}.vnr3-track>.vnr3-state{display:none}.vnr3-script-layer{inset:26px 358px 76px}.vnr3-script-window{border-radius:24px}}'
     ].join('');
 
@@ -867,19 +868,19 @@
         m.card.appendChild(ops);
     }
 
-    function openContinuousPanel(pl) {
+    function openScriptLibrary() {
         var old = stage.querySelector('.vnr3-script-layer');
         if (old) old.remove();
         var layer = V('vnr3-script-layer');
         var panel = V('vnr3-script-window');
         var head = V('vnr3-script-window-head');
         var title = V('');
-        title.appendChild(V('vnr3-script-window-title', '完整台本'));
-        title.appendChild(V('vnr3-script-window-sub', (pl && pl.name || '当前歌单') + ' · 阅读、编辑与播放'));
+        title.appendChild(V('vnr3-script-window-title', '台本库'));
+        title.appendChild(V('vnr3-script-window-sub', '跨歌单管理长台本与当前播放列表的歌曲台本'));
         head.appendChild(title);
         var close = E('button', 'vnr3-script-close', '×');
         close.type = 'button';
-        close.title = '关闭完整台本';
+        close.title = '关闭台本库';
         close.onclick = function() { layer.remove(); };
         head.appendChild(close);
         panel.appendChild(head);
@@ -891,10 +892,126 @@
             var y = body.scrollTop || 0;
             body.innerHTML = '';
             body.__vnr3Refresh = paint;
-            renderContinuous(body, pl);
+            var toolbar = V('vnr3-library-toolbar');
+            var tabs = V('vnr3-segment');
+            var tab = u.v3ScriptLibraryTab === 'songs' ? 'songs' : 'continuous';
+            tabs.appendChild(button('长篇陪伴台本', function() { u.v3ScriptLibraryTab = 'continuous'; savePos(); paint(); }, tab === 'continuous' ? 'on' : ''));
+            tabs.appendChild(button('当前歌曲台本', function() { u.v3ScriptLibraryTab = 'songs'; savePos(); paint(); }, tab === 'songs' ? 'on' : ''));
+            toolbar.appendChild(tabs);
+            if (tab === 'continuous') {
+                var playlists = v3.playlists();
+                var selectedId = u.v3ScriptLibraryPlaylistId || v3.state.activePlaylistId || 'now-playing';
+                var selectedPlaylist = v3.playlist(selectedId) || v3.currentPlaylist() || playlists[0];
+                u.v3ScriptLibraryPlaylistId = selectedPlaylist && selectedPlaylist.id || 'now-playing';
+                var picker = selectField('查看歌单', u.v3ScriptLibraryPlaylistId, playlists.map(function(item) {
+                    var count = (v3.state.continuousVersions || []).filter(function(version) {
+                        return (version.playlistId || 'now-playing') === item.id;
+                    }).length;
+                    return { value: item.id, label: (item.name || '未命名歌单') + ' · ' + count + ' 份' };
+                }));
+                picker.input.onchange = function() {
+                    u.v3ScriptLibraryPlaylistId = picker.input.value;
+                    savePos();
+                    paint();
+                };
+                toolbar.appendChild(picker);
+                body.appendChild(toolbar);
+                var continuousBox = V('');
+                continuousBox.__vnr3Refresh = paint;
+                body.appendChild(continuousBox);
+                renderContinuous(continuousBox, selectedPlaylist);
+            } else {
+                toolbar.appendChild(V('vnr3-hint', '这里显示正在播放和后续队列中每首歌曲携带的台本。'));
+                body.appendChild(toolbar);
+                renderQueueScripts(body, paint);
+            }
             body.scrollTop = y;
         }
         paint();
+    }
+
+    function openContinuousPanel(pl) {
+        u.v3ScriptLibraryTab = 'continuous';
+        u.v3ScriptLibraryPlaylistId = pl && pl.id || v3.state.activePlaylistId || 'now-playing';
+        savePos();
+        openScriptLibrary();
+    }
+
+    function renderQueueScripts(box, refresh) {
+        var items = (eng.current ? [eng.current] : []).concat(eng.queue || []);
+        if (!items.length) {
+            box.appendChild(V('vnr2-empty', '当前播放列表为空。'));
+            return;
+        }
+        items.forEach(function(item, itemIndex) {
+            if (!item || !item.song) return;
+            var versions = v3.scriptVersionsForItem(item);
+            var selected = versions[0] || null;
+            var card = V('vnr3-speech-node vnr3-queue-script');
+            var head = V('vnr3-queue-script-head');
+            var name = V('');
+            name.appendChild(V('vnr3-title', (itemIndex === 0 && eng.current === item ? '正在播放 · ' : '') + (item.song.title || item.song.query || '未命名歌曲')));
+            name.appendChild(V('vnr3-sub', (item.song.artist || '') + ' · ' + versions.length + ' 个已存版本'));
+            head.appendChild(name);
+            head.appendChild(V('vnr3-cache-badge', item.say ? '播放时会朗读' : '暂无台本'));
+            card.appendChild(head);
+            var picker = selectField('台本版本', selected && selected.id || '', versions.length ? versions.map(function(version, index) {
+                return {
+                    value: version.id,
+                    label: (version.favorite ? '★ ' : '') + (version.label || ('版本 ' + (index + 1)))
+                };
+            }) : [{ value: '', label: '新建台本' }]);
+            card.appendChild(picker);
+            var host = field('主持人', selected && selected.host || item.host || '', 'text');
+            var text = field('台本内容', selected && selected.say || item.say || '', 'textarea');
+            card.appendChild(host);
+            card.appendChild(text);
+            picker.input.onchange = function() {
+                if (picker.input.value) v3.selectSongScript(item, picker.input.value);
+                refresh();
+            };
+            var ops = V('vnr3-node-ops');
+            ops.appendChild(button('保存编辑', function() {
+                var currentId = picker.input.value || '';
+                var favorite = false;
+                versions.forEach(function(version) { if (version.id === currentId) favorite = !!version.favorite; });
+                v3.saveSongScript(item, {
+                    id: currentId,
+                    host: host.input.value,
+                    say: text.input.value,
+                    favorite: favorite,
+                    label: selected && selected.label || '手动编辑'
+                });
+                _toast('歌曲台本已保存');
+                refresh();
+            }, 'primary'));
+            ops.appendChild(button(selected && selected.favorite ? '取消收藏版本' : '收藏版本', function() {
+                if (!picker.input.value || String(picker.input.value).indexOf('current-') === 0) {
+                    var created = v3.saveSongScript(item, {
+                        host: host.input.value,
+                        say: text.input.value,
+                        favorite: true,
+                        label: '收藏台本'
+                    });
+                    if (!created) _toast('请先填写台本内容');
+                } else {
+                    v3.toggleSongScriptFavorite(item, picker.input.value);
+                }
+                refresh();
+            }));
+            ops.appendChild(button('另存为新版本', function() {
+                var created = v3.saveSongScript(item, {
+                    host: host.input.value,
+                    say: text.input.value,
+                    favorite: false,
+                    label: '手动版本'
+                });
+                if (!created) _toast('请先填写台本内容');
+                refresh();
+            }));
+            card.appendChild(ops);
+            box.appendChild(card);
+        });
     }
 
     function renderContinuous(box, pl) {
@@ -907,7 +1024,9 @@
         var version = v3.activeContinuous(pl.id);
         var title = V('');
         title.appendChild(V('vnr3-title', pl.name + ' · 完整台本'));
-        title.appendChild(V('vnr3-sub', version ? version.title : '这个歌单还没有完整台本'));
+        var runtime = v3.continuousRuntime;
+        var playingThis = !!(version && runtime && runtime.versionId === version.id && !runtime.stopped);
+        title.appendChild(V('vnr3-sub', version ? ((playingThis ? '正在播放 · ' : '') + version.title) : '这个歌单还没有完整台本'));
         head.appendChild(title);
         var ops = V('vnr3-inline-ops');
         ops.appendChild(button('请求完整台本', function() {
@@ -924,15 +1043,8 @@
             refreshContinuous();
         }));
         if (version) {
-            ops.appendChild(button('整体播放', function() { v3.playContinuous(version.id); }));
+            ops.appendChild(button(playingThis ? '重新播放' : '整体播放', function() { v3.playContinuous(version.id); }));
             ops.appendChild(button('停止', function() { v3.stopContinuous(); }));
-            ops.appendChild(button('生成并保存音频', function() {
-                var p = modal('生成整份音频');
-                var status = V('vnr3-hint', '准备开始…'); p.card.appendChild(status);
-                v3.exportContinuous(version.id, function(i, n) { status.textContent = '正在生成 ' + i + ' / ' + n; }, function(err) {
-                    status.textContent = err ? ('失败：' + err) : '生成完成，文件已保存。';
-                });
-            }));
             ops.appendChild(button('原始数据', function() {
                 var rawModal = modal('台本原始数据');
                 var raw = field('JSON', JSON.stringify(version.nodes || [], null, 2), 'textarea');
@@ -953,8 +1065,50 @@
                 }, 'primary'));
                 rawModal.card.appendChild(rawOps);
             }));
+            if (!version.favorite) {
+                ops.appendChild(button('删除版本', function() {
+                    if (TOP.confirm && !TOP.confirm('删除这个未收藏的长台本版本？')) return;
+                    v3.deleteContinuousVersion(version.id);
+                    refreshContinuous();
+                }, 'danger'));
+            }
         }
         head.appendChild(ops); box.appendChild(head);
+        if (version) {
+            var cacheBar = V('vnr3-library-cache');
+            var cacheLabel = version.audioCacheComplete ?
+                ('已缓存 ' + _num(version.audioCacheCount, 0) + ' 段语音' + (version.audioDirectoryFolder ? ' · ' + version.audioDirectoryFolder : ' · 浏览器本地')) :
+                ('尚未完整缓存语音' + (v3.state.cacheDirectoryName ? ' · 目录：' + v3.state.cacheDirectoryName : ''));
+            cacheBar.appendChild(V('vnr3-cache-badge', cacheLabel));
+            cacheBar.appendChild(button('选择缓存目录', function() {
+                v3.chooseCacheDirectory(function(err, name) {
+                    _toast(err || ('已选择目录：' + name));
+                    refreshContinuous();
+                });
+            }));
+            cacheBar.appendChild(button(version.audioCacheComplete ? '重新检查并补全缓存' : '缓存完整语音', function() {
+                var p = modal('缓存完整语音');
+                var status = V('vnr3-hint', '准备分段请求并写入本地缓存…');
+                p.card.appendChild(status);
+                p.card.appendChild(V('vnr3-hint', '台本会按当前分块规则逐段缓存；再次播放仍会按照原台本中的 pause 秒数停顿。'));
+                v3.cacheContinuous(version.id, function(i, n) {
+                    status.textContent = '正在缓存 ' + i + ' / ' + n;
+                }, function(err, result) {
+                    status.textContent = err ? ('失败：' + err) :
+                        ('缓存完成，共 ' + result.count + ' 段' + (result.directory ? '，已写入目录 ' + result.directory : '，保存在浏览器本地'));
+                    refreshContinuous();
+                });
+            }, 'primary'));
+            if (version.audioCacheKeys && version.audioCacheKeys.length) {
+                cacheBar.appendChild(button('清除应用内缓存', function() {
+                    v3.clearContinuousCache(version.id, function(err) {
+                        _toast(err || '应用内语音缓存已清除；电脑目录中的文件未删除');
+                        refreshContinuous();
+                    });
+                }));
+            }
+            box.appendChild(cacheBar);
+        }
         var versions = (v3.state.continuousVersions || []).filter(function(item) {
             return (item.playlistId || 'now-playing') === pl.id;
         });
@@ -962,7 +1116,7 @@
             var versionSelect = selectField('台本历史版本', version && version.id || '', versions.map(function(item, index) {
                 return {
                     value: item.id,
-                    label: (item.favorite ? '★ ' : '') + (item.title || ('台本 ' + (index + 1)))
+                    label: (item.favorite ? '★ ' : '') + (item.audioCacheComplete ? '⬇ ' : '') + (item.title || ('台本 ' + (index + 1)))
                 };
             }));
             versionSelect.input.onchange = function() {
@@ -1153,6 +1307,12 @@
             ghosts[0].title = '请求模式 · ' + v3.modeLabel();
             ghosts[0].innerHTML = icon2(v3.state.mode === 'recommend' ? 'spark2' : (v3.state.mode === 'playlist' ? 'listB' : 'quote'));
             ghosts[0].onclick = openModeMenu;
+        }
+        if (ghosts[1]) {
+            ghosts[1].classList.remove('ghost');
+            ghosts[1].title = '台本库';
+            ghosts[1].innerHTML = icon2('listRect');
+            ghosts[1].onclick = openScriptLibrary;
         }
         if (ghosts[2]) {
             ghosts[2].classList.remove('ghost');

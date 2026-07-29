@@ -3,10 +3,10 @@
  * It deliberately uses ES5 syntax because the radio runs inside SillyTavern webviews.
  */
 (function vnr3InstallCore() {
-    if (eng.v3 && eng.v3.version >= 3.5) return;
+    if (eng.v3 && eng.v3.version >= 3.7) return;
 
     var v3 = eng.v3 = {
-        version: 3.5,
+        version: 3.7,
         audio: {},
         continuousRuntime: null,
         sleepTimer: null,
@@ -138,7 +138,11 @@
         st.continuousVersions = Object.prototype.toString.call(st.continuousVersions) === '[object Array]' ? st.continuousVersions : [];
         st.activeContinuousIds = st.activeContinuousIds || {};
         st.continuousVersions.forEach(function(version) {
-            if (version && !version.playlistId) version.playlistId = 'now-playing';
+            if (!version) return;
+            if (!version.playlistId) version.playlistId = 'now-playing';
+            version.favorite = !!version.favorite;
+            version.audioCacheKeys = Object.prototype.toString.call(version.audioCacheKeys) === '[object Array]' ? version.audioCacheKeys : [];
+            version.audioFiles = version.audioFiles && typeof version.audioFiles === 'object' ? version.audioFiles : {};
         });
         if (st.activeContinuousId && !st.activeContinuousIds['now-playing']) {
             st.activeContinuousIds['now-playing'] = st.activeContinuousId;
@@ -148,7 +152,8 @@
         st.backgroundChecked = st.backgroundChecked || {};
         st.pendingImport = null;
         st.sleep = st.sleep || null;
-        st.schema = 3;
+        st.cacheDirectoryName = String(st.cacheDirectoryName || '');
+        st.schema = 4;
         return st;
     }
 
@@ -515,14 +520,168 @@
 
     v3.setMode = function(mode) {
         if (!/^(recommend|playlist|companion)$/.test(mode || '')) return;
+        if (mode !== 'companion' && v3.continuousRuntime) v3.stopContinuous();
+        if (mode === 'companion' && !v3.continuousRuntime) {
+            try {
+                if (eng.voice) {
+                    eng.voice.onended = null;
+                    eng.voice.onerror = null;
+                    eng.voice.pause();
+                    eng.voice.src = '';
+                }
+            } catch (e) {}
+            eng.duck(false);
+        }
         v3.state.mode = mode;
         v3.save();
         v3.uiRefresh();
     };
 
+    v3.songScriptsSuppressed = function() {
+        return v3.state.mode === 'companion' || !!v3.continuousRuntime;
+    };
+
     v3.modeLabel = function(mode) {
         mode = mode || v3.state.mode;
         return mode === 'playlist' ? '歌单模式' : (mode === 'companion' ? '陪伴模式' : '推荐模式');
+    };
+
+    function trimScriptVersions(list, maxNormal) {
+        list = Object.prototype.toString.call(list) === '[object Array]' ? list : [];
+        maxNormal = Math.max(1, _num(maxNormal, 5));
+        var favorite = [], normal = [];
+        list.forEach(function(version) {
+            if (!version || !version.say) return;
+            if (version.favorite) favorite.push(version);
+            else if (normal.length < maxNormal) normal.push(version);
+        });
+        return favorite.concat(normal);
+    }
+
+    function itemSongRefs(item) {
+        item = item || {};
+        var song = item.song || {};
+        var key = songKey(song), refs = [], seen = [];
+        v3.playlists().forEach(function(pl) {
+            (pl.songs || []).forEach(function(saved) {
+                if (!saved) return;
+                if (item.librarySongId && saved.id === item.librarySongId || key && songKey(saved) === key) {
+                    if (seen.indexOf(saved) < 0) {
+                        seen.push(saved);
+                        refs.push(saved);
+                    }
+                }
+            });
+        });
+        var favorite = _favByKey(key);
+        if (favorite && seen.indexOf(favorite) < 0) refs.push(favorite);
+        return refs;
+    }
+
+    v3.scriptVersionsForItem = function(item) {
+        var refs = itemSongRefs(item), out = [], ids = {};
+        refs.forEach(function(song) {
+            (song.scriptVersions || []).forEach(function(version) {
+                if (!version || !version.say) return;
+                var id = version.id || ('script-' + songKey(song) + '-' + (version.t || 0));
+                if (ids[id]) return;
+                ids[id] = 1;
+                out.push(version);
+            });
+        });
+        out.sort(function(a, b) { return _num(b.t, 0) - _num(a.t, 0); });
+        if (!out.length && item && item.say) {
+            out.push({
+                id: 'current-' + item.id,
+                t: 0,
+                host: item.host || '',
+                say: item.say,
+                favorite: false,
+                ephemeral: true,
+                label: '当前队列台本'
+            });
+        }
+        return out;
+    };
+
+    v3.saveSongScript = function(item, data) {
+        item = item || {};
+        data = data || {};
+        var say = String(data.say || '').trim();
+        if (!say) return null;
+        var id = data.id && String(data.id).indexOf('current-') !== 0 ? data.id : uid('script');
+        var refs = itemSongRefs(item);
+        if (!refs.length) {
+            var now = v3.playlist('now-playing');
+            if (now) {
+                var saved = cleanSong(item.song || {});
+                saved.id = item.librarySongId || saved.id || uid('song');
+                now.songs.push(saved);
+                item.librarySongId = saved.id;
+                refs.push(saved);
+            }
+        }
+        var savedVersion = null;
+        refs.forEach(function(song) {
+            song.scriptVersions = song.scriptVersions || [];
+            var version = null;
+            for (var i = 0; i < song.scriptVersions.length; i++) {
+                if (song.scriptVersions[i] && song.scriptVersions[i].id === id) version = song.scriptVersions[i];
+            }
+            if (!version) {
+                version = { id: id, t: Date.now() };
+                song.scriptVersions.unshift(version);
+            }
+            version.t = Date.now();
+            version.host = String(data.host || item.host || '');
+            version.say = say;
+            version.favorite = !!data.favorite;
+            version.label = data.label || version.label || '手动保存';
+            song.scriptVersions = trimScriptVersions(song.scriptVersions, 5);
+            song.selectedScriptId = id;
+            savedVersion = version;
+        });
+        item.say = say;
+        item.host = String(data.host || item.host || '');
+        item.needsScript = false;
+        item.scriptFresh = true;
+        item.spoken = false;
+        eng.saveQueue();
+        v3.save();
+        v3.uiRefresh();
+        return savedVersion;
+    };
+
+    v3.selectSongScript = function(item, id) {
+        var versions = v3.scriptVersionsForItem(item), selected = null;
+        for (var i = 0; i < versions.length; i++) if (versions[i].id === id) selected = versions[i];
+        if (!selected) return false;
+        itemSongRefs(item).forEach(function(song) { song.selectedScriptId = id; });
+        item.say = selected.say || '';
+        item.host = selected.host || '';
+        item.needsScript = !item.say;
+        item.scriptFresh = !!item.say;
+        item.spoken = false;
+        eng.saveQueue();
+        v3.save();
+        v3.uiRefresh();
+        return true;
+    };
+
+    v3.toggleSongScriptFavorite = function(item, id) {
+        var next = null;
+        itemSongRefs(item).forEach(function(song) {
+            (song.scriptVersions || []).forEach(function(version) {
+                if (version && version.id === id) {
+                    if (next === null) next = !version.favorite;
+                    version.favorite = next;
+                }
+            });
+            song.scriptVersions = trimScriptVersions(song.scriptVersions, 5);
+        });
+        v3.save();
+        v3.uiRefresh();
+        return next;
     };
 
     var COMPANION_PROMPT_DEFAULT = [
@@ -670,6 +829,10 @@
     }
 
     v3.requestLinkedScripts = function(manual, selectedIds) {
+        if (v3.songScriptsSuppressed()) {
+            if (manual) _toast('陪伴模式正在使用长台本，不请求歌曲台本');
+            return;
+        }
         if (eng.scriptBusy) return;
         if (!manual && !v3.consumeAutoRequest()) {
             _toast('睡眠模式的自动请求次数已用完');
@@ -715,20 +878,12 @@
                 it.scriptFresh = true;
                 it.spoken = false;
                 count++;
-                if (it.librarySongId) {
-                    var lists = v3.playlists();
-                    lists.forEach(function(lp) {
-                        (lp.songs || []).forEach(function(song) {
-                            if (song.id !== it.librarySongId) return;
-                            song.scriptVersions = song.scriptVersions || [];
-                            song.scriptVersions.unshift({ id: uid('script'), t: Date.now(), host: it.host, say: it.say, favorite: false });
-                            var fav = song.scriptVersions.filter(function(x) { return x.favorite; });
-                            var normal = song.scriptVersions.filter(function(x) { return !x.favorite; }).slice(0, 5);
-                            song.scriptVersions = fav.concat(normal);
-                            song.selectedScriptId = song.scriptVersions[0] && song.scriptVersions[0].id || '';
-                        });
-                    });
-                }
+                v3.saveSongScript(it, {
+                    host: it.host,
+                    say: it.say,
+                    favorite: false,
+                    label: '关联台本'
+                });
             });
             eng.saveQueue();
             v3.save();
@@ -896,8 +1051,213 @@
         return null;
     };
 
+    v3.deleteContinuousVersion = function(id) {
+        var version = v3.continuousById(id);
+        if (!version || version.favorite) return false;
+        if (v3.continuousRuntime && v3.continuousRuntime.versionId === id) v3.stopContinuous();
+        var next = [];
+        (v3.state.continuousVersions || []).forEach(function(item) {
+            if (item && item.id !== id) next.push(item);
+        });
+        v3.state.continuousVersions = next;
+        var playlistId = version.playlistId || 'now-playing';
+        if (v3.state.activeContinuousIds[playlistId] === id) {
+            var replacement = null;
+            for (var i = 0; i < next.length; i++) {
+                if ((next[i].playlistId || 'now-playing') === playlistId) {
+                    replacement = next[i];
+                    break;
+                }
+            }
+            v3.state.activeContinuousIds[playlistId] = replacement ? replacement.id : '';
+        }
+        if (v3.state.activeContinuousId === id) v3.state.activeContinuousId = '';
+        (version.audioCacheKeys || []).forEach(function(key) { cacheRecordDelete('audio', key).catch(function() {}); });
+        v3.save();
+        v3.uiRefresh();
+        return true;
+    };
+
     function hostForName(name) {
         return _charByName(name || '', _selectedHosts(eng.store || {})) || _selectedHosts(eng.store || {})[0] || null;
+    }
+
+    v3.continuousById = function(id) {
+        var found = null;
+        (v3.state.continuousVersions || []).forEach(function(version) {
+            if (version && version.id === id) found = version;
+        });
+        return found;
+    };
+
+    var audioCacheDbPromise = null;
+
+    function openAudioCacheDb() {
+        if (audioCacheDbPromise) return audioCacheDbPromise;
+        audioCacheDbPromise = new TOP.Promise(function(resolve, reject) {
+            if (!TOP.indexedDB) {
+                reject(new Error('当前浏览器不支持本地语音缓存'));
+                return;
+            }
+            var req = TOP.indexedDB.open('vnm-radio-audio-cache-v1', 1);
+            req.onupgradeneeded = function() {
+                var db = req.result;
+                if (!db.objectStoreNames.contains('audio')) db.createObjectStore('audio', { keyPath: 'key' });
+                if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'key' });
+            };
+            req.onsuccess = function() { resolve(req.result); };
+            req.onerror = function() { reject(req.error || new Error('本地语音缓存打开失败')); };
+        });
+        return audioCacheDbPromise;
+    }
+
+    function cacheRecordGet(storeName, key) {
+        return openAudioCacheDb().then(function(db) {
+            return new TOP.Promise(function(resolve, reject) {
+                var req = db.transaction(storeName, 'readonly').objectStore(storeName).get(key);
+                req.onsuccess = function() { resolve(req.result || null); };
+                req.onerror = function() { reject(req.error || new Error('读取本地缓存失败')); };
+            });
+        });
+    }
+
+    function cacheRecordPut(storeName, value) {
+        return openAudioCacheDb().then(function(db) {
+            return new TOP.Promise(function(resolve, reject) {
+                var req = db.transaction(storeName, 'readwrite').objectStore(storeName).put(value);
+                req.onsuccess = function() { resolve(value); };
+                req.onerror = function() { reject(req.error || new Error('写入本地缓存失败')); };
+            });
+        });
+    }
+
+    function cacheRecordDelete(storeName, key) {
+        return openAudioCacheDb().then(function(db) {
+            return new TOP.Promise(function(resolve, reject) {
+                var req = db.transaction(storeName, 'readwrite').objectStore(storeName)["delete"](key);
+                req.onsuccess = function() { resolve(); };
+                req.onerror = function() { reject(req.error || new Error('删除本地缓存失败')); };
+            });
+        });
+    }
+
+    function simpleHash(text) {
+        text = String(text || '');
+        var hash = 2166136261;
+        for (var i = 0; i < text.length; i++) {
+            hash ^= text.charCodeAt(i);
+            hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+        }
+        return (hash >>> 0).toString(36);
+    }
+
+    function voiceSignature(host) {
+        var ch = hostForName(host) || {};
+        return [
+            _ttsProviderFor(ch),
+            ch.ttsVoiceId || ch.fishVoiceId || '',
+            ch.ttsSpeed || 1,
+            ch.ttsLanguage || ''
+        ].join('|');
+    }
+
+    function audioCacheKey(version, item) {
+        return [
+            'continuous',
+            version.id,
+            item.id,
+            simpleHash((item.host || '') + '\n' + (item.ttsText || '') + '\n' + voiceSignature(item.host))
+        ].join('|');
+    }
+
+    function safeFilePart(text) {
+        return String(text || '').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/[.\s]+$/g, '').slice(0, 80) || 'radio-script';
+    }
+
+    function ensureDirectoryPermission(handle, request) {
+        if (!handle) return TOP.Promise.resolve(false);
+        var options = { mode: 'readwrite' };
+        if (!handle.queryPermission) return TOP.Promise.resolve(true);
+        return handle.queryPermission(options).then(function(state) {
+            if (state === 'granted') return true;
+            if (request && handle.requestPermission) return handle.requestPermission(options).then(function(next) { return next === 'granted'; });
+            return false;
+        });
+    }
+
+    function getCacheDirectory(requestPermission) {
+        return cacheRecordGet('meta', 'directory-handle').then(function(record) {
+            var handle = record && record.handle;
+            if (!handle) return null;
+            return ensureDirectoryPermission(handle, requestPermission).then(function(ok) { return ok ? handle : null; });
+        }).catch(function() { return null; });
+    }
+
+    v3.chooseCacheDirectory = function(done) {
+        var picker = TOP.showDirectoryPicker;
+        if (typeof picker !== 'function') {
+            done && done('当前浏览器不支持选择电脑目录；仍可使用浏览器本地缓存');
+            return;
+        }
+        picker.call(TOP, { mode: 'readwrite', id: 'vnm-radio-audio-cache' }).then(function(handle) {
+            return cacheRecordPut('meta', { key: 'directory-handle', handle: handle }).then(function() {
+                v3.state.cacheDirectoryName = handle.name || '已选择目录';
+                v3.save();
+                done && done(null, v3.state.cacheDirectoryName);
+            });
+        }).catch(function(e) {
+            if (e && e.name === 'AbortError') return;
+            done && done((e && e.message) || String(e));
+        });
+    };
+
+    function blobFromUrl(url) {
+        return TOP.fetch(url).then(function(response) {
+            if (!response.ok) throw new Error('读取语音片段失败 HTTP ' + response.status);
+            return response.blob();
+        });
+    }
+
+    function getDirectoryCachedBlob(version, item) {
+        var fileName = version.audioFiles && version.audioFiles[item.cacheKey];
+        if (!fileName || !version.audioDirectoryFolder) return TOP.Promise.resolve(null);
+        return getCacheDirectory(false).then(function(root) {
+            if (!root) return null;
+            return root.getDirectoryHandle(version.audioDirectoryFolder).then(function(dir) {
+                return dir.getFileHandle(fileName).then(function(fileHandle) { return fileHandle.getFile(); });
+            });
+        }).catch(function() { return null; });
+    }
+
+    function getCachedAudioBlob(version, item) {
+        return cacheRecordGet('audio', item.cacheKey).then(function(record) {
+            if (record && record.blob) return record.blob;
+            return getDirectoryCachedBlob(version, item);
+        }).catch(function() {
+            return getDirectoryCachedBlob(version, item);
+        });
+    }
+
+    function putCachedAudioBlob(version, item, blob) {
+        version.audioCacheKeys = version.audioCacheKeys || [];
+        if (version.audioCacheKeys.indexOf(item.cacheKey) < 0) version.audioCacheKeys.push(item.cacheKey);
+        version.audioCachedAt = Date.now();
+        return cacheRecordPut('audio', {
+            key: item.cacheKey,
+            versionId: version.id,
+            itemId: item.id,
+            createdAt: Date.now(),
+            type: blob.type || 'audio/mpeg',
+            blob: blob
+        });
+    }
+
+    function writeBlobFile(dir, name, blob) {
+        return dir.getFileHandle(name, { create: true }).then(function(handle) {
+            return handle.createWritable();
+        }).then(function(writer) {
+            return writer.write(blob).then(function() { return writer.close(); });
+        });
     }
 
     function splitTtsText(text, max) {
@@ -957,12 +1317,19 @@
             });
         }
 
+        function finalize() {
+            out.forEach(function(item) {
+                if (item.type === 'speech') item.cacheKey = audioCacheKey(version, item);
+            });
+            return out;
+        }
+
         if (splitMode === 'chars') {
             source.forEach(function(n) {
                 if (n.type === 'pause') out.push({ id: n.id, type: 'pause', seconds: n.seconds });
                 else appendSpeech(n);
             });
-            return out;
+            return finalize();
         }
 
         var pending = null;
@@ -992,7 +1359,7 @@
             pending.displayText += (pending.displayText ? '\n' : '') + String(n.displayText || '').trim();
         });
         flushPending();
-        return out;
+        return finalize();
     }
 
     function prefetchContinuous(rt) {
@@ -1005,18 +1372,42 @@
             item.requesting = true;
             active++;
             (function(job) {
-                _tts(job.ttsText, hostForName(job.host), function(url) {
+                getCachedAudioBlob(rt.version, job).then(function(blob) {
+                    if (rt.stopped) return;
+                    if (blob) {
+                        job.requesting = false;
+                        job.cached = true;
+                        job.url = (TOP.URL || URL).createObjectURL(blob);
+                        job.cachedObjectUrl = job.url;
+                        v3.uiRefresh();
+                        if (rt.waitingFor === job.id) playContinuousNext(rt);
+                        prefetchContinuous(rt);
+                        return;
+                    }
+                    _tts(job.ttsText, hostForName(job.host), function(url) {
+                        job.requesting = false;
+                        job.url = url;
+                        if (rt.version.audioCacheEnabled) {
+                            blobFromUrl(url).then(function(generatedBlob) {
+                                return putCachedAudioBlob(rt.version, job, generatedBlob);
+                            }).then(function() {
+                                v3.save();
+                            }).catch(function() {});
+                        }
+                        v3.uiRefresh();
+                        if (rt.waitingFor === job.id) playContinuousNext(rt);
+                        prefetchContinuous(rt);
+                    }, function(e) {
+                        job.requesting = false;
+                        job.error = e || 'TTS失败';
+                        v3.uiRefresh();
+                        if (rt.waitingFor === job.id) playContinuousNext(rt);
+                        prefetchContinuous(rt);
+                    });
+                }).catch(function(e) {
                     job.requesting = false;
-                    job.url = url;
+                    job.error = (e && e.message) || String(e);
                     v3.uiRefresh();
-                    if (rt.waitingFor === job.id) playContinuousNext(rt);
-                    prefetchContinuous(rt);
-                }, function(e) {
-                    job.requesting = false;
-                    job.error = e || 'TTS失败';
-                    v3.uiRefresh();
-                    if (rt.waitingFor === job.id) playContinuousNext(rt);
-                    prefetchContinuous(rt);
                 });
             })(item);
         }
@@ -1075,6 +1466,7 @@
             var cap = item.firstPart ? _popup((item.host ? item.host + '：' : '') + (item.displayText || item.ttsText)) : null;
             eng.duck(true);
             var audio = new TOP.Audio(item.url);
+            audio.__vnmContinuous = true;
             rt.audio = audio;
             eng.voice = audio;
             audio.muted = !!(eng.store && eng.store.muted);
@@ -1107,14 +1499,23 @@
     }
 
     v3.playContinuous = function(id) {
-        var version = null;
-        (v3.state.continuousVersions || []).forEach(function(v) { if (v.id === id) version = v; });
+        var version = v3.continuousById(id);
         if (!version) return;
         v3.stopContinuous();
+        v3.state.mode = 'companion';
+        try {
+            if (eng.voice) {
+                eng.voice.onended = null;
+                eng.voice.onerror = null;
+                eng.voice.pause();
+                eng.voice.src = '';
+            }
+        } catch (e) {}
         v3.state.activeContinuousId = version.id;
         v3.state.activeContinuousIds[version.playlistId || 'now-playing'] = version.id;
         var rt = v3.continuousRuntime = {
             versionId: id,
+            version: version,
             items: runtimeItems(version),
             index: 0,
             stopped: false,
@@ -1133,6 +1534,12 @@
         rt.stopped = true;
         try { if (rt.pauseTimer) TOP.clearInterval(rt.pauseTimer); } catch (e) {}
         try { if (rt.audio) rt.audio.pause(); } catch (e2) {}
+        if (eng.voice === rt.audio) eng.voice = null;
+        (rt.items || []).forEach(function(item) {
+            if (!item || !item.cachedObjectUrl) return;
+            try { (TOP.URL || URL).revokeObjectURL(item.cachedObjectUrl); } catch (e3) {}
+            item.cachedObjectUrl = '';
+        });
         eng.duck(false);
         v3.continuousRuntime = null;
         v3.uiRefresh();
@@ -1387,6 +1794,126 @@
         }, 3000);
     }
 
+    v3.cacheContinuous = function(versionId, progress, done) {
+        var version = v3.continuousById(versionId);
+        if (!version) {
+            done && done('没有台本');
+            return;
+        }
+        var allItems = runtimeItems(version);
+        var speechItems = allItems.filter(function(item) { return item.type === 'speech'; });
+        if (!speechItems.length) {
+            done && done('台本中没有可生成的朗读段');
+            return;
+        }
+        version.audioCacheEnabled = true;
+        version.audioFiles = version.audioFiles || {};
+        var rootHandle = null, scriptDir = null;
+        getCacheDirectory(true).then(function(handle) {
+            rootHandle = handle;
+            if (!rootHandle) return null;
+            version.audioDirectoryFolder = safeFilePart((version.title || '连续台本') + '-' + version.id.slice(-8));
+            return rootHandle.getDirectoryHandle(version.audioDirectoryFolder, { create: true }).then(function(dir) {
+                scriptDir = dir;
+                return dir;
+            });
+        }).then(function() {
+            var index = 0;
+            function next() {
+                if (index >= speechItems.length) {
+                    var manifest = {
+                        version: 1,
+                        scriptId: version.id,
+                        title: version.title || '连续台本',
+                        createdAt: new Date().toISOString(),
+                        splitMode: cfg.v3TtsSplitMode === 'chars' ? 'chars' : 'pause',
+                        items: allItems.map(function(item) {
+                            if (item.type === 'pause') return { type: 'pause', seconds: item.seconds };
+                            return {
+                                type: 'speech',
+                                id: item.id,
+                                host: item.host,
+                                ttsText: item.ttsText,
+                                displayText: item.displayText,
+                                cacheKey: item.cacheKey,
+                                file: version.audioFiles[item.cacheKey] || ''
+                            };
+                        })
+                    };
+                    var finish = TOP.Promise.resolve();
+                    if (scriptDir) {
+                        finish = writeBlobFile(scriptDir, 'manifest.json', new TOP.Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' }));
+                    }
+                    finish.then(function() {
+                        version.audioCacheComplete = true;
+                        version.audioCacheCount = speechItems.length;
+                        version.audioCachedAt = Date.now();
+                        v3.save();
+                        v3.uiRefresh();
+                        done && done(null, {
+                            count: speechItems.length,
+                            directory: version.audioDirectoryFolder || ''
+                        });
+                    }).catch(function(e) { done && done((e && e.message) || String(e)); });
+                    return;
+                }
+                var item = speechItems[index];
+                progress && progress(index + 1, speechItems.length, item);
+                function persist(blob) {
+                    return putCachedAudioBlob(version, item, blob).then(function() {
+                        if (!scriptDir) return;
+                        var seq = ('0000' + String(index + 1)).slice(-4);
+                        var fileName = seq + '-' + safeFilePart(item.host || 'host') + '.mp3';
+                        version.audioFiles[item.cacheKey] = fileName;
+                        return writeBlobFile(scriptDir, fileName, blob);
+                    });
+                }
+                getCachedAudioBlob(version, item).then(function(blob) {
+                    if (blob) return persist(blob);
+                    return new TOP.Promise(function(resolve, reject) {
+                        _tts(item.ttsText, hostForName(item.host), function(url) {
+                            blobFromUrl(url).then(resolve).catch(reject);
+                        }, reject);
+                    }).then(persist);
+                }).then(function() {
+                    index++;
+                    v3.save();
+                    next();
+                }).catch(function(e) {
+                    done && done((e && e.message) || String(e));
+                });
+            }
+            next();
+        }).catch(function(e) {
+            done && done((e && e.message) || String(e));
+        });
+    };
+
+    v3.clearContinuousCache = function(versionId, done) {
+        var version = v3.continuousById(versionId);
+        if (!version) {
+            done && done('没有台本');
+            return;
+        }
+        var keys = (version.audioCacheKeys || []).slice();
+        var index = 0;
+        function next() {
+            if (index >= keys.length) {
+                version.audioCacheKeys = [];
+                version.audioCacheComplete = false;
+                version.audioCacheCount = 0;
+                version.audioCachedAt = 0;
+                version.audioCacheEnabled = false;
+                v3.save();
+                v3.uiRefresh();
+                done && done(null);
+                return;
+            }
+            cacheRecordDelete('audio', keys[index++]).then(next).catch(next);
+        }
+        next();
+    };
+
     v3.exportContinuous = function(versionId, progress, done) {
         var version = null;
         (v3.state.continuousVersions || []).forEach(function(v) { if (v.id === versionId) version = v; });
@@ -1429,6 +1956,55 @@
         v3.state = ensureState();
         v3.save();
         v3.uiRefresh();
+    };
+
+    var oldSpeakItem = _speakItem;
+    _speakItem = function(item, force, after) {
+        if (v3.songScriptsSuppressed()) {
+            if (item) item.spoken = false;
+            eng.duck(false);
+            if (after) after(false);
+            return;
+        }
+        return oldSpeakItem(item, force, after);
+    };
+
+    var oldRequestScripts = eng.requestScripts;
+    eng.requestScripts = function() {
+        if (v3.songScriptsSuppressed()) {
+            _toast('陪伴模式正在使用长台本，不请求歌曲台本');
+            return;
+        }
+        return oldRequestScripts.apply(eng, arguments);
+    };
+
+    var oldNextForContinuous = eng.next;
+    eng.next = function() {
+        var rt = v3.continuousRuntime;
+        var continuousVoice = rt && rt.audio && eng.voice === rt.audio ? rt.audio : null;
+        if (continuousVoice) eng.voice = null;
+        try {
+            return oldNextForContinuous.apply(eng, arguments);
+        } finally {
+            if (continuousVoice && v3.continuousRuntime === rt && !rt.stopped) eng.voice = continuousVoice;
+        }
+    };
+
+    _trimScripts = function(favoriteSong) {
+        if (!favoriteSong) return;
+        favoriteSong.scriptVersions = trimScriptVersions(favoriteSong.scriptVersions, _num(cfg.scriptHistoryMax, 3));
+    };
+
+    var oldRemoveScriptVersion = eng.removeScriptVersion;
+    eng.removeScriptVersion = function(song, versionId) {
+        var versions = (_favByKey(_songKey(song)) || {}).scriptVersions || [];
+        for (var i = 0; i < versions.length; i++) {
+            if (versions[i] && versions[i].id === versionId && versions[i].favorite) {
+                _toast('已收藏的台本版本受保护，请先取消收藏');
+                return;
+            }
+        }
+        return oldRemoveScriptVersion.apply(eng, arguments);
     };
 
     var oldSaveQueue = eng.saveQueue;

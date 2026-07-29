@@ -49,7 +49,7 @@ page = page.replace(coreAnchor, '    ' + CORE_START + '\n' + core + '\n    ' + C
 page = page.replace(uiAnchor, '        ' + UI_START + '\n' + ui + '\n        ' + UI_END + '\n\n' + uiAnchor);
 
 data.pageCode = page;
-data.version = '3.6.0-playlist-studio';
-data.description = '多主持人私人电台 · 本地多歌单 · 推荐/歌单/陪伴三模式 · 连续台本与高级背景音 · iOS 灰阶圆角 UI';
+data.version = '3.7.0-script-library-cache';
+data.description = '多主持人私人电台 · 本地多歌单 · 推荐/歌单/陪伴三模式 · 统一台本库与长台本本地语音缓存 · 高级背景音';
 fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2) + '\n');
 console.log('[build-radio-v3] injected core/UI into', jsonPath);
