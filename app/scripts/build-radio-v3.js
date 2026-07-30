@@ -75,16 +75,20 @@ page = replaceRequired(
   page,
   [
     "var h = eng.store.chatHistory || [];\n            if (!h.length) {\n                chatBox.appendChild(E('div', 'vnr2-empty', '还没有连线记录。Enter 只发出消息，右侧按钮才请求回复；按住麦克风说话。'));\n                return;\n            }",
+    "var h = eng.store.chatHistory || [];\n            var liveCompanion=eng.v3&&eng.v3.currentContinuousLine?eng.v3.currentContinuousLine():null;\n            if (!h.length && !(liveCompanion&&liveCompanion.text)) {\n                chatBox.appendChild(E('div', 'vnr2-empty', '还没有连线记录。Enter 只发出消息，右侧按钮才请求回复；按住麦克风说话。'));\n                return;\n            }",
     "var h = eng.store.chatHistory || [];\n            var liveCompanion=eng.v3&&eng.v3.currentContinuousLine?eng.v3.currentContinuousLine():null;\n            if(liveCompanion&&liveCompanion.text){var liveRow=E('div','vnr2-mrow ai');var liveHead=E('div','vnr2-mhead');liveHead.appendChild(E('span','',liveCompanion.host||liveCompanion.versionTitle||'陪伴台本'));liveRow.appendChild(liveHead);liveRow.appendChild(E('div','vnr2-mtext',liveCompanion.text));chatBox.appendChild(liveRow);}\n            if (!h.length) {\n                if(!liveCompanion)chatBox.appendChild(E('div', 'vnr2-empty', '还没有连线记录。Enter 只发出消息，右侧按钮才请求回复；按住麦克风说话。'));\n                return;\n            }"
   ],
-  "var h = eng.store.chatHistory || [];\n            var liveCompanion=eng.v3&&eng.v3.currentContinuousLine?eng.v3.currentContinuousLine():null;\n            if (!h.length && !(liveCompanion&&liveCompanion.text)) {\n                chatBox.appendChild(E('div', 'vnr2-empty', '还没有连线记录。Enter 只发出消息，右侧按钮才请求回复；按住麦克风说话。'));\n                return;\n            }",
-  'studio companion live chat row'
+  "var h = eng.store.chatHistory || [];\n            if (!h.length) {\n                chatBox.appendChild(E('div', 'vnr2-empty', '还没有连线记录。Enter 只发出消息，右侧按钮才请求回复；按住麦克风说话。'));\n                return;\n            }",
+  'persisted companion chat history'
 );
 page = replaceRequired(
   page,
+  [
+    "                chatBox.appendChild(row);\n            });\n            chatBox.scrollTop = chatBox.scrollHeight;",
+    "                chatBox.appendChild(row);\n            });\n            if(liveCompanion&&liveCompanion.text){var liveRow=E('div','vnr2-mrow ai');var liveHead=E('div','vnr2-mhead');var liveMsg={host:liveCompanion.host||'',role:'assistant'};liveHead.appendChild(avaEl(liveMsg));liveHead.appendChild(E('span','',('♪ '+(liveCompanion.playlistName||'当前播放列表')+' · ')+(liveCompanion.host||'主持人')));liveRow.appendChild(liveHead);var livePairs=_pairBilingual(_splitCaption(liveCompanion.text||''));livePairs.forEach(function(pair){var bubble=E('div','vnr2-bub');bubble.appendChild(E('span','',pair.main));if(pair.tr){var chip=E('span','vnr2-trc','译');var translated=E('div','vnr2-trx',pair.tr);chip.onclick=function(){bubble.classList.toggle('tr-open');};bubble.appendChild(chip);bubble.appendChild(translated);}liveRow.appendChild(bubble);});chatBox.appendChild(liveRow);}\n            chatBox.scrollTop = chatBox.scrollHeight;"
+  ],
   "                chatBox.appendChild(row);\n            });\n            chatBox.scrollTop = chatBox.scrollHeight;",
-  "                chatBox.appendChild(row);\n            });\n            if(liveCompanion&&liveCompanion.text){var liveRow=E('div','vnr2-mrow ai');var liveHead=E('div','vnr2-mhead');var liveMsg={host:liveCompanion.host||'',role:'assistant'};liveHead.appendChild(avaEl(liveMsg));liveHead.appendChild(E('span','',('♪ '+(liveCompanion.playlistName||'当前播放列表')+' · ')+(liveCompanion.host||'主持人')));liveRow.appendChild(liveHead);var livePairs=_pairBilingual(_splitCaption(liveCompanion.text||''));livePairs.forEach(function(pair){var bubble=E('div','vnr2-bub');bubble.appendChild(E('span','',pair.main));if(pair.tr){var chip=E('span','vnr2-trc','译');var translated=E('div','vnr2-trx',pair.tr);chip.onclick=function(){bubble.classList.toggle('tr-open');};bubble.appendChild(chip);bubble.appendChild(translated);}liveRow.appendChild(bubble);});chatBox.appendChild(liveRow);}\n            chatBox.scrollTop = chatBox.scrollHeight;",
-  'studio companion sentence bubbles'
+  'remove transient companion chat row'
 );
 
 // The v3 core reads FIELDS and wraps the final eng.request/eng.next methods.
@@ -105,7 +109,7 @@ page = page.replace(uiAnchor, function() {
 });
 
 data.pageCode = page;
-data.version = '3.9.4-unified-audio-controls';
-data.description = '多主持人私人电台 · 陪伴台本逐句展示 · 歌曲/台本/背景音联动控制 · 稳定滚动与封面';
+data.version = '3.9.5-script-library-and-sleep';
+data.description = '多主持人私人电台 · 陪伴台本持久记录 · 本地台本播放列表 · 睡眠结束统一停播 · 稳定玻璃界面';
 fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2) + '\n');
 console.log('[build-radio-v3] injected core/UI into', jsonPath);

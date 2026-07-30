@@ -8,7 +8,7 @@
 
     st.textContent += [
         '.vnr3-btn{appearance:none;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.07);color:inherit;border-radius:14px;padding:10px 14px;font:inherit;cursor:pointer;transition:.18s ease}',
-        '.vnr3-btn:hover{background:rgba(255,255,255,.12);transform:translateY(-1px)}',
+        '.vnr3-btn:hover{background:rgba(255,255,255,.12)}',
         '.vnr3-btn.primary{background:rgba(255,255,255,.17);border-color:rgba(255,255,255,.2)}',
         '.vnr3-btn.danger{background:rgba(0,0,0,.18)}',
         '.vnr3-btn.icon{width:36px;height:36px;padding:0;border-radius:50%;font-size:20px}',
@@ -26,7 +26,7 @@
         '.vnr3-toolbar{display:flex;align-items:end;justify-content:space-between;gap:14px;margin:8px 0 18px}.vnr3-title{font-size:20px;font-weight:650}.vnr3-search{max-width:240px}',
         '.vnr3-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(142px,1fr));grid-auto-rows:max-content;gap:18px;align-items:start;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;padding-right:7px}',
         '.vnr3-pl-card{box-sizing:border-box;width:100%;min-width:0;cursor:pointer;border-radius:20px;padding:10px;background:rgba(255,255,255,.035);transition:.18s ease;align-self:start}',
-        '.vnr3-pl-card:hover{background:rgba(255,255,255,.08);transform:translateY(-2px)}',
+        '.vnr3-pl-card:hover{background:rgba(255,255,255,.08)}',
         '.vnr3-pl-cover,.vnr3-add-cover,.vnr3-detail-cover{position:relative;aspect-ratio:1/1;overflow:hidden;border-radius:17px;background:linear-gradient(145deg,rgba(255,255,255,.12),rgba(0,0,0,.15));box-shadow:0 12px 30px rgba(0,0,0,.18)}',
         '.vnr3-pl-cover img,.vnr3-detail-cover img{width:100%;height:100%;object-fit:cover}.vnr3-default-cover{height:100%;display:grid;place-items:center;color:rgba(255,255,255,.52);font-size:34px}',
         '.vnr3-current-chip{position:absolute;left:8px;bottom:8px;padding:4px 7px;border-radius:9px;background:rgba(20,20,22,.7);backdrop-filter:blur(8px);font-size:10px}',
@@ -45,10 +45,11 @@
         '.vnr3-bg-row{display:grid;grid-template-columns:22px minmax(0,1fr) auto auto;gap:9px;align-items:center;padding:10px;border-radius:15px;background:rgba(255,255,255,.035)}.vnr3-bg-settings{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:8px}.vnr3-bg-settings .vnr3-field{margin:0}.vnr3-bg-row.error{opacity:.48}',
         '.vnr2-set{overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;pointer-events:auto}',
         '.vnr3-status-error{opacity:.55;text-decoration:line-through}.vnr3-persona{margin:12px 0}.vnr3-persona textarea{min-height:110px}',
-        '.vnr3-script-layer{position:absolute;inset:34px 390px 82px;z-index:40;pointer-events:auto;display:flex;align-items:stretch;justify-content:center}.vnr3-script-window{width:100%;min-width:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(255,255,255,.14);border-radius:28px;background:rgba(34,37,44,.96);box-shadow:0 28px 90px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.09);backdrop-filter:blur(34px);-webkit-backdrop-filter:blur(34px)}',
+        '.vnr3-script-layer{position:absolute;inset:34px 330px 82px;z-index:40;pointer-events:auto;display:flex;align-items:stretch;justify-content:center}.vnr3-script-window{width:100%;min-width:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(255,255,255,.16);border-radius:30px;background:linear-gradient(145deg,rgba(77,84,101,.78),rgba(34,38,48,.82));box-shadow:0 28px 90px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.13);backdrop-filter:blur(38px) saturate(130%);-webkit-backdrop-filter:blur(38px) saturate(130%)}',
         '.vnr3-script-window-head{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,.08)}.vnr3-script-window-title{font-size:20px;font-weight:680}.vnr3-script-window-sub{font-size:11px;opacity:.5;margin-top:3px}.vnr3-script-close{width:38px;height:38px;flex:0 0 38px;border:1px solid rgba(255,255,255,.12);border-radius:50%;background:rgba(255,255,255,.07);color:inherit;font-size:23px;cursor:pointer}.vnr3-script-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;padding:18px 20px 24px;user-select:text}.vnr3-script-body .vnr3-cont-head{padding:0 0 12px}.vnr3-script-body .vnr3-speech-node{background:rgba(255,255,255,.045);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}',
-        '.vnr3-library-toolbar{display:grid;grid-template-columns:auto minmax(180px,320px);gap:12px;align-items:end;margin-bottom:18px}.vnr3-library-toolbar .vnr3-field{margin:0}.vnr3-library-cache{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 0 14px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:14px}.vnr3-queue-script{display:grid;gap:9px;margin-bottom:12px}.vnr3-queue-script-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.vnr3-cache-badge{font-size:11px;opacity:.62}',
-        '@media(max-width:720px){.vnr3-shade{align-items:flex-end;padding:0}.vnr3-modal{width:100%;max-height:88vh;border-radius:26px 26px 0 0;padding:18px 16px 24px}.vnr3-toolbar{align-items:stretch;flex-direction:column}.vnr3-search{max-width:none}.vnr3-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.vnr3-detail-head{grid-template-columns:94px 1fr;gap:14px;align-items:center}.vnr3-detail-title{font-size:20px}.vnr3-inline-ops{grid-column:1/-1}.vnr3-song-row{grid-template-columns:minmax(0,1fr)}.vnr3-track{grid-template-columns:24px 38px minmax(0,1fr) auto auto}.vnr3-track>.vnr3-state{display:none}.vnr3-script-layer{inset:26px 358px 76px}.vnr3-script-window{border-radius:24px}}'
+        '.vnr3-library-toolbar{display:grid;grid-template-columns:auto minmax(180px,320px);gap:12px;align-items:end;margin-bottom:18px;padding:10px;border:1px solid rgba(255,255,255,.09);border-radius:20px;background:rgba(255,255,255,.045)}.vnr3-library-toolbar .vnr3-field{margin:0}.vnr3-library-cache{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 14px;border:1px solid rgba(255,255,255,.09);border-radius:18px;background:rgba(255,255,255,.04);margin-bottom:14px}.vnr3-queue-script{display:grid;gap:9px;margin-bottom:12px}.vnr3-queue-script-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.vnr3-cache-badge{font-size:11px;opacity:.62}',
+        '.vnr3-library-dashboard{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(250px,.75fr);gap:14px;margin:14px 0 18px}.vnr3-library-pane{min-width:0;border:1px solid rgba(255,255,255,.1);border-radius:22px;background:rgba(14,17,24,.2);box-shadow:inset 0 1px 0 rgba(255,255,255,.06);padding:14px}.vnr3-library-pane-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:11px}.vnr3-library-pane-title{font-size:14px;font-weight:650}.vnr3-version-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:224px;overflow:auto;padding-right:3px}.vnr3-version-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;border:1px solid rgba(255,255,255,.08);border-radius:16px;background:rgba(255,255,255,.045);padding:11px;cursor:pointer}.vnr3-version-card:hover{background:rgba(255,255,255,.08)}.vnr3-version-card.on{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.19)}.vnr3-version-name{font-size:13px;font-weight:620;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vnr3-version-meta{font-size:10px;opacity:.5;margin-top:3px}.vnr3-queue-list{display:grid;gap:7px;max-height:174px;overflow:auto}.vnr3-queue-row{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:7px;align-items:center;border-radius:14px;background:rgba(255,255,255,.05);padding:8px 9px}.vnr3-queue-index{width:20px;height:20px;border-radius:7px;background:rgba(255,255,255,.09);display:grid;place-items:center;font-size:10px}.vnr3-mini-action{appearance:none;border:0;background:rgba(255,255,255,.07);color:inherit;width:27px;height:27px;border-radius:50%;cursor:pointer}.vnr3-mini-action:hover{background:rgba(255,255,255,.14)}.vnr3-editor-surface{border-top:1px solid rgba(255,255,255,.08);padding-top:17px}.vnr3-track-action{width:34px!important;height:34px!important;border-radius:50%!important;border:1px solid rgba(255,255,255,.13)!important;background:rgba(255,255,255,.055)!important;padding:0!important;display:grid!important;place-items:center!important;font-size:15px!important;line-height:1!important}.vnr3-track-action:hover{background:rgba(255,255,255,.12)!important}.vnr3-track-action svg{width:16px!important;height:16px!important;stroke-width:1.7}',
+        '@media(max-width:720px){.vnr3-shade{align-items:flex-end;padding:0}.vnr3-modal{width:100%;max-height:88vh;border-radius:26px 26px 0 0;padding:18px 16px 24px}.vnr3-toolbar{align-items:stretch;flex-direction:column}.vnr3-search{max-width:none}.vnr3-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.vnr3-detail-head{grid-template-columns:94px 1fr;gap:14px;align-items:center}.vnr3-detail-title{font-size:20px}.vnr3-inline-ops{grid-column:1/-1}.vnr3-song-row{grid-template-columns:minmax(0,1fr)}.vnr3-track{grid-template-columns:24px 38px minmax(0,1fr) auto auto}.vnr3-track>.vnr3-state{display:none}.vnr3-script-layer{inset:26px 358px 76px}.vnr3-script-window{border-radius:24px}.vnr3-library-dashboard{grid-template-columns:1fr}.vnr3-version-grid{grid-template-columns:1fr}}'
     ].join('');
 
     if (!eng.__v3RequestWrapped) {
@@ -64,6 +65,7 @@
         };
         var vnr3OldNext = eng.next;
         eng.next = function() {
+            if (v3.sleepStopPending) return;
             var pl = v3.currentPlaylist();
             var sleep = v3.state.sleep;
             if (eng.running && !(eng.queue || []).length && pl && (!pl.system || pl.favoriteSystem)) {
@@ -194,7 +196,12 @@
         shade.appendChild(card);
         shell.appendChild(shade);
         shade.card = card;
-        shade.onclick = function(ev) { if (ev.target === shade) shade.remove(); };
+        var backdropArmed = false;
+        shade.onpointerdown = function(ev) { backdropArmed = ev.target === shade; };
+        shade.onclick = function(ev) {
+            if (ev.target === shade && backdropArmed) shade.remove();
+            backdropArmed = false;
+        };
         return shade;
     }
     function choice(title, options) {
@@ -600,7 +607,7 @@
             var picked = selectedSongs();
             if (!picked.length) { _toast('请先勾选歌曲'); return; }
             var deleteNote = isNowPlaying ? '只会从当前播放队列移除已选歌曲。' :
-                (isFavorites ? '会将已选歌曲移出“我的收藏”，不会删除其他歌单中的歌曲。' : '只会从这个歌单移除已选歌曲，不影响其他歌单中的同名歌曲。');
+                (isFavorites ? '会将已选歌曲移出 Favorites，不会删除其他歌单中的歌曲。' : '只会从这个歌单移除已选歌曲，不影响其他歌单中的同名歌曲。');
             confirmAction('删除已选的 ' + picked.length + ' 首歌曲？', deleteNote, function() {
                 if (isNowPlaying) picked.forEach(function(song) {
                     var items = (eng.current ? [eng.current] : []).concat(eng.queue || []);
@@ -647,10 +654,11 @@
                 eng.toggleFav(song, song.say || '');
                 renderMain();
             }, 'icon');
-            favoriteButton.title = _isFav(song) ? '移出我的收藏' : '收入我的收藏';
+            favoriteButton.classList.add('vnr3-track-action');
+            favoriteButton.title = _isFav(song) ? '移出 Favorites' : '收入 Favorites';
             favoriteButton.innerHTML = icon2(_isFav(song) ? 'heartF' : 'heart');
             row.appendChild(favoriteButton);
-            row.appendChild(button('•••', function() {
+            var moreButton = button('···', function() {
                 choice(song.title || '歌曲操作', [
                     { label: '编辑歌曲', action: function() { if (!isNowPlaying && !isFavorites) openSongEditor(pl, song); } },
                     { label: '立即播放', action: function() { eng.queueSong(song, true); } },
@@ -664,7 +672,10 @@
                         renderMain();
                     } }
                 ]);
-            }, 'icon'));
+            }, 'icon');
+            moreButton.classList.add('vnr3-track-action');
+            moreButton.title = '更多';
+            row.appendChild(moreButton);
             list.appendChild(row);
         });
         box.appendChild(list);
@@ -756,7 +767,7 @@
     function openSleep() {
         var m = modal('睡眠倒计时');
         var currentSleep = v3.state.sleep && v3.state.sleep.active ? v3.state.sleep : null;
-        var minutes = field('自定义时长（分钟，可直接输入）', currentSleep ? currentSleep.durationMinutes : 30, 'number');
+        var minutes = field('自定义时长（分钟，可直接输入）', currentSleep ? currentSleep.durationMinutes : '', 'number');
         minutes.input.min = '0.05';
         minutes.input.step = '0.05';
         minutes.input.inputMode = 'decimal';
@@ -768,7 +779,7 @@
             presets.appendChild(button(n + ' 分钟', function() { minutes.input.value = n; }));
         });
         m.card.appendChild(minutes);
-        m.card.appendChild(V('vnr3-hint', '上方快捷按钮只是预设；也可以在输入框填写任意分钟数。'));
+        m.card.appendChild(V('vnr3-hint', '倒计时结束后会让当前歌曲自然播完，再统一停止音乐、台本语音和所有背景音。'));
         m.card.appendChild(limit);
         var loop = V('vnr3-toggle-row'); loop.appendChild(V('', '次数耗尽后循环已有内容'));
         var sw = E('button', 'vnr2-sw'); sw.appendChild(E('i', '')); sw.onclick = function() { sw.classList.toggle('on'); }; loop.appendChild(sw);
@@ -1144,57 +1155,112 @@
             return (item.playlistId || 'now-playing') === pl.id;
         });
         if (versions.length) {
-            var versionSelect = selectField('台本历史版本', version && version.id || '', versions.map(function(item, index) {
-                return {
-                    value: item.id,
-                    label: (item.favorite ? '★ ' : '') + (item.audioCacheComplete ? '⬇ ' : '') + (item.title || ('台本 ' + (index + 1)))
-                };
-            }));
-            versionSelect.input.onchange = function() {
-                v3.state.activeContinuousIds[pl.id] = versionSelect.input.value;
-                v3.state.activeContinuousId = versionSelect.input.value;
-                v3.save();
-                refreshContinuous();
-            };
-            box.appendChild(versionSelect);
-            var playlistBox = V('vnr3-speech-node');
-            playlistBox.appendChild(V('vnr3-title', '历史台本播放列表'));
-            playlistBox.appendChild(V('vnr3-hint', '可播放全部历史版本，或勾选几个版本按当前顺序连续播放。播放期间歌曲自带台本不会朗读。'));
-            var selectedMap = v3.state.scriptPlaylistSelection[pl.id] || (v3.state.scriptPlaylistSelection[pl.id] = {});
-            versions.forEach(function(item, index) {
-                var row = V('vnr3-node-ops');
-                var check = E('input', ''); check.type = 'checkbox'; check.checked = !!selectedMap[item.id];
-                check.onchange = function() {
-                    selectedMap[item.id] = check.checked;
-                    v3.save();
-                };
-                row.appendChild(check);
-                row.appendChild(V('', (index + 1) + '. ' + (item.title || '未命名台本')));
-                playlistBox.appendChild(row);
-            });
-            var playOps = V('vnr3-node-ops');
-            playOps.appendChild(button('播放全部历史台本', function() {
+            var queue = v3.state.scriptPlaybackQueues[pl.id];
+            if (Object.prototype.toString.call(queue) !== '[object Array]') {
+                var legacy = v3.state.scriptPlaylistSelection[pl.id] || {};
+                queue = versions.filter(function(item) { return !!legacy[item.id]; }).map(function(item) { return item.id; });
+                v3.state.scriptPlaybackQueues[pl.id] = queue;
+            }
+            queue = queue.filter(function(id) { return versions.some(function(item) { return item.id === id; }); });
+            v3.state.scriptPlaybackQueues[pl.id] = queue;
+
+            var dashboard = V('vnr3-library-dashboard');
+            var libraryPane = V('vnr3-library-pane');
+            var libraryHead = V('vnr3-library-pane-head');
+            var libraryTitle = V('');
+            libraryTitle.appendChild(V('vnr3-library-pane-title', '已存台本'));
+            libraryTitle.appendChild(V('vnr3-hint', versions.length + ' 份 · 点击卡片查看和编辑'));
+            libraryHead.appendChild(libraryTitle);
+            libraryHead.appendChild(button('全部播放', function() {
                 v3.playContinuousSequence(versions.map(function(item) { return item.id; }));
                 refreshContinuous();
-            }, 'primary'));
-            playOps.appendChild(button('播放勾选的台本', function() {
-                var ids = versions.filter(function(item) { return !!selectedMap[item.id]; }).map(function(item) { return item.id; });
-                if (!ids.length) { _toast('请先勾选至少一个台本版本'); return; }
-                v3.playContinuousSequence(ids);
-                refreshContinuous();
             }));
-            playOps.appendChild(button('清空勾选', function() {
-                v3.state.scriptPlaylistSelection[pl.id] = {};
+            libraryPane.appendChild(libraryHead);
+            var versionGrid = V('vnr3-version-grid');
+            versions.forEach(function(item, index) {
+                var card = V('vnr3-version-card' + (version && version.id === item.id ? ' on' : ''));
+                var copy = V('');
+                copy.appendChild(V('vnr3-version-name', item.title || ('台本 ' + (index + 1))));
+                copy.appendChild(V('vnr3-version-meta',
+                    (item.favorite ? '已收藏 · ' : '') +
+                    (item.audioCacheComplete ? '语音已缓存' : '需要时请求 TTS')));
+                card.appendChild(copy);
+                var add = E('button', 'vnr3-mini-action', queue.indexOf(item.id) >= 0 ? '✓' : '+');
+                add.type = 'button';
+                add.title = queue.indexOf(item.id) >= 0 ? '已加入播放列表' : '加入播放列表';
+                add.onclick = function(ev) {
+                    ev.stopPropagation();
+                    if (queue.indexOf(item.id) < 0) queue.push(item.id);
+                    v3.save();
+                    refreshContinuous();
+                };
+                card.appendChild(add);
+                card.onclick = function() {
+                    v3.state.activeContinuousIds[pl.id] = item.id;
+                    v3.state.activeContinuousId = item.id;
+                    v3.save();
+                    refreshContinuous();
+                };
+                versionGrid.appendChild(card);
+            });
+            libraryPane.appendChild(versionGrid);
+            dashboard.appendChild(libraryPane);
+
+            var queuePane = V('vnr3-library-pane');
+            var queueHead = V('vnr3-library-pane-head');
+            var queueTitle = V('');
+            queueTitle.appendChild(V('vnr3-library-pane-title', '本地播放列表'));
+            queueTitle.appendChild(V('vnr3-hint', '按这里的顺序连续朗读'));
+            queueHead.appendChild(queueTitle);
+            if (queue.length) queueHead.appendChild(button('清空', function() {
+                v3.state.scriptPlaybackQueues[pl.id] = [];
                 v3.save();
                 refreshContinuous();
             }));
-            playlistBox.appendChild(playOps);
-            box.appendChild(playlistBox);
+            queuePane.appendChild(queueHead);
+            var queueList = V('vnr3-queue-list');
+            if (!queue.length) {
+                queueList.appendChild(V('vnr3-hint', '从左侧已存台本点“＋”加入。'));
+            }
+            queue.forEach(function(id, queueIndex) {
+                var item = versions.filter(function(candidate) { return candidate.id === id; })[0];
+                if (!item) return;
+                var row = V('vnr3-queue-row');
+                row.appendChild(V('vnr3-queue-index', String(queueIndex + 1)));
+                row.appendChild(V('vnr3-version-name', item.title || '未命名台本'));
+                var rowOps = V('vnr3-segment');
+                if (queueIndex > 0) {
+                    var up = E('button', 'vnr3-mini-action', '↑');
+                    up.onclick = function() {
+                        var x = queue[queueIndex - 1]; queue[queueIndex - 1] = queue[queueIndex]; queue[queueIndex] = x;
+                        v3.save(); refreshContinuous();
+                    };
+                    rowOps.appendChild(up);
+                }
+                var remove = E('button', 'vnr3-mini-action', '×');
+                remove.title = '从播放列表移除';
+                remove.onclick = function() { queue.splice(queueIndex, 1); v3.save(); refreshContinuous(); };
+                rowOps.appendChild(remove);
+                row.appendChild(rowOps);
+                queueList.appendChild(row);
+            });
+            queuePane.appendChild(queueList);
+            var queueOps = V('vnr3-inline-ops');
+            queueOps.appendChild(button('播放这个列表', function() {
+                if (!queue.length) { _toast('请先从左侧加入台本'); return; }
+                v3.playContinuousSequence(queue.slice());
+                refreshContinuous();
+            }, 'primary'));
+            queuePane.appendChild(queueOps);
+            dashboard.appendChild(queuePane);
+            box.appendChild(dashboard);
         }
         if (!version) {
             box.appendChild(V('vnr2-empty', '这个歌单还没有完整台本。可以请求 AI 生成，也可以新建空白台本后自己编辑。'));
             return;
         }
+        var editorSurface = V('vnr3-editor-surface');
+        box.appendChild(editorSurface);
         var nodes = version.nodes || [];
         var audioDetails = E('details', 'vnr3-speech-node');
         var audioSummary = E('summary', 'vnr3-title', '音频匹配设置 · ' + ((version.audioAssets || []).length) + ' 个音频');
@@ -1243,7 +1309,7 @@
             }, 'danger'));
             audioDetails.appendChild(assetCard);
         });
-        box.appendChild(audioDetails);
+        editorSurface.appendChild(audioDetails);
         var list = V('vnr3-node-list');
         nodes.forEach(function(node, index) {
             if (node.type === 'pause') {
@@ -1279,7 +1345,7 @@
             no.appendChild(button('删除', function() { nodes.splice(index, 1); refreshContinuous(); }, 'danger'));
             card.appendChild(no); list.appendChild(card);
         });
-        box.appendChild(list);
+        editorSurface.appendChild(list);
         var save = V('vnr3-sticky-save');
         save.appendChild(button('添加朗读段', function() {
             var hosts = _selectedHosts(eng.store || {});
@@ -1300,7 +1366,7 @@
         }));
         save.appendChild(button('保存当前编辑', function() { version.edited = true; v3.save(); _toast('台本已保存'); }, 'primary'));
         save.appendChild(button(version.favorite ? '取消收藏' : '收藏版本', function() { version.favorite = !version.favorite; v3.save(); refreshContinuous(); }));
-        box.appendChild(save);
+        editorSurface.appendChild(save);
     }
 
     function augmentArtistShortPersona(box) {
@@ -1329,7 +1395,8 @@
         var links = sidebar.querySelectorAll('.vnr2-nav-it');
         for (var i = 0; i < links.length; i++) {
             if ((links[i].textContent || '').indexOf('All Playlists') >= 0) {
-                links[i].classList.toggle('on', u.view === 'playlists' || u.view === 'playlist-detail');
+                links[i].classList.toggle('on', u.view === 'playlists' ||
+                    (u.view === 'playlist-detail' && u.v3PlaylistId !== 'my-favorites'));
                 links[i].onclick = function() {
                     u.view = 'playlists';
                     u.sidesOpen = true;
@@ -1341,7 +1408,7 @@
             if ((links[i].textContent || '').indexOf('Favorites') >= 0 || (links[i].textContent || '').indexOf('我的收藏') >= 0) {
                 var favoriteLink = links[i];
                 var favoriteLabel = favoriteLink.querySelector('span');
-                if (favoriteLabel) favoriteLabel.textContent = '我的收藏 · ' + ((eng.store.favoriteSongs || []).length);
+                if (favoriteLabel) favoriteLabel.textContent = 'Favorites · ' + ((eng.store.favoriteSongs || []).length);
                 favoriteLink.classList.toggle('on', u.view === 'playlist-detail' && u.v3PlaylistId === 'my-favorites');
                 favoriteLink.onclick = function() {
                     u.sidesOpen = true;
@@ -1460,6 +1527,7 @@
             if (icons) {
                 icons.innerHTML = '';
                 var timerButton = E('button', 'vnr3-sc-action');
+                timerButton.classList.add('vnr3-sleep-action');
                 timerButton.type = 'button';
                 timerButton.title = '睡眠倒计时';
                 timerButton.innerHTML = (v3.sleepLabel() ? '<span class="vnr3-timer-label">' + v3.sleepLabel() + '</span>' : '') + icon2('speaker2');
@@ -1473,7 +1541,24 @@
                 icons.appendChild(backgroundsButton);
             }
         }
+        syncBottomV3();
     };
+
+    function syncBottomV3() {
+        var timerButton = bbar.querySelector('.vnr3-sleep-action');
+        if (!timerButton) return;
+        var label = v3.sleepLabel();
+        var labelNode = timerButton.querySelector('.vnr3-timer-label');
+        if (label) {
+            if (!labelNode) {
+                labelNode = E('span', 'vnr3-timer-label');
+                timerButton.insertBefore(labelNode, timerButton.firstChild || null);
+            }
+            labelNode.textContent = label;
+        } else if (labelNode) {
+            labelNode.remove();
+        }
+    }
 
     try {
         TOP.addEventListener('vnm-radio-v3-refresh', function() {
@@ -1482,10 +1567,9 @@
                     if (row && typeof row.__vnr3SyncBackground === 'function') row.__vnr3SyncBackground();
                 });
                 if (u.mode === 'studio') {
-                    renderBottomBar();
-                    if (/^(playlists|playlist-detail)$/.test(u.view || '')) renderMain();
-                    var scriptBody = stage.querySelector('.vnr3-script-body');
-                    if (scriptBody && typeof scriptBody.__vnr3Refresh === 'function') scriptBody.__vnr3Refresh();
+                    /* 计时、TTS 进度等高频状态只原位更新。整块重绘会让进度条、
+                       hover 和打开的 details 在每次 refresh 时闪烁或复位。 */
+                    syncBottomV3();
                 }
             } catch (e) {}
         });

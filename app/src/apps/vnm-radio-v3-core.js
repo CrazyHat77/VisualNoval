@@ -3,16 +3,17 @@
  * It deliberately uses ES5 syntax because the radio runs inside SillyTavern webviews.
  */
 (function vnr3InstallCore() {
-    if (eng.v3 && eng.v3.version >= 3.94) return;
+    if (eng.v3 && eng.v3.version >= 3.95) return;
 
     var v3 = eng.v3 = {
-        version: 3.94,
+        version: 3.95,
         audio: {},
         continuousRuntime: null,
         sleepTimer: null,
         uiRefresh: function() {
             try {
-                eng.emit();
+                /* 高频播放进度不能调用 eng.emit()：它会让整个 studio 重新绘制，
+                   造成封面、进度条、hover 与展开面板持续闪烁。 */
                 TOP.dispatchEvent(new TOP.CustomEvent('vnm-radio-v3-refresh'));
             } catch (e) {}
         }
@@ -100,7 +101,7 @@
                 id: 'my-favorites',
                 system: true,
                 favoriteSystem: true,
-                name: '我的收藏',
+                name: 'Favorites',
                 description: '在电台中点击爱心收藏的歌曲',
                 cover: '',
                 coverMode: 'latest',
@@ -115,7 +116,7 @@
         }
         favorites.system = true;
         favorites.favoriteSystem = true;
-        favorites.name = '我的收藏';
+        favorites.name = 'Favorites';
         var knownCovers = {};
         st.playlists.forEach(function(pl) {
             if (!pl || pl.id === 'my-favorites') return;
@@ -155,6 +156,7 @@
         st.pendingImport = null;
         st.sleep = st.sleep || null;
         st.scriptPlaylistSelection = st.scriptPlaylistSelection && typeof st.scriptPlaylistSelection === 'object' ? st.scriptPlaylistSelection : {};
+        st.scriptPlaybackQueues = st.scriptPlaybackQueues && typeof st.scriptPlaybackQueues === 'object' ? st.scriptPlaybackQueues : {};
         st.schema = 5;
         return st;
     }
@@ -2030,11 +2032,41 @@
         rt.captionTimer = null;
     }
 
+    function recordContinuousSentence(rt, item, index, text) {
+        text = String(text || '').trim();
+        if (!rt || !item || !text) return;
+        var key = String(item.id || rt.index) + ':' + index;
+        rt.recordedCaptionKeys = rt.recordedCaptionKeys || {};
+        if (rt.recordedCaptionKeys[key]) return;
+        rt.recordedCaptionKeys[key] = true;
+        var playlist = v3.playlist(rt.version && rt.version.playlistId || 'now-playing');
+        var history = eng.store.chatHistory = eng.store.chatHistory || [];
+        history.push({
+            id: uid('continuous-message'),
+            scriptId: rt.versionId,
+            segmentIndex: index,
+            role: 'assistant',
+            kind: 'script',
+            scriptKind: 'companion',
+            host: item.host || '',
+            song: playlist && playlist.name || '当前播放列表',
+            content: text,
+            display: text,
+            tts: text,
+            t: Date.now()
+        });
+        if (history.length > 400) history.splice(0, history.length - 400);
+        eng.saveStore();
+        try { TOP.dispatchEvent(new TOP.CustomEvent('vnm-radio-chat-refresh')); } catch (e) {}
+    }
+
     function startCaptionTracking(rt, item, audio) {
         clearCaptionTimer(rt);
         var sentences = item.captionSentences || [];
         if (!sentences.length) sentences = [item.displayText || item.ttsText || ''];
         rt.currentText = sentences[0] || '';
+        rt.currentCaptionIndex = 0;
+        recordContinuousSentence(rt, item, 0, rt.currentText);
         if (rt.captionPopup && rt.captionPopup.setText) {
             rt.captionPopup.setText((item.host ? item.host + '：' : '') + rt.currentText);
         }
@@ -2060,6 +2092,10 @@
                 if (target <= sum) break;
             }
             rt.currentText = sentences[index] || sentences[sentences.length - 1] || '';
+            if (rt.currentCaptionIndex !== index) {
+                rt.currentCaptionIndex = index;
+                recordContinuousSentence(rt, item, index, rt.currentText);
+            }
             if (rt.captionPopup && rt.captionPopup.setText) {
                 rt.captionPopup.setText((item.host ? item.host + '：' : '') + rt.currentText);
             }
@@ -2280,7 +2316,8 @@
             nextPending: false,
             nextVersionId: '',
             waitingForNext: false,
-            nextError: ''
+            nextError: '',
+            recordedCaptionKeys: {}
         };
         v3.save();
         prefetchContinuous(rt);
@@ -2485,20 +2522,42 @@
         if (!s) return;
         s.expired = true;
         s.remainingMs = 0;
-        eng.running = false;
+        /* 倒计时只禁止续播；当前歌曲自然播完后，再一次性停止所有声道。 */
+        v3.sleepStopPending = true;
         v3.save();
-        var rt = v3.continuousRuntime;
-        if (rt) {
-            rt.stopAfterCurrent = true;
-            if (!rt.audio) v3.stopContinuous();
-        }
         var check = TOP.setInterval(function() {
-            var musicDone = !eng.music || eng.music.paused || eng.music.ended;
-            var voiceDone = !eng.voice || eng.voice.paused || eng.voice.ended;
-            if (!musicDone || !voiceDone) return;
+            if (!s.active || !s.expired) {
+                TOP.clearInterval(check);
+                return;
+            }
+            var musicDone = true;
+            try {
+                var music = eng.music;
+                var hasTrack = !!(music && (music.currentSrc || music.src));
+                var duration = music && Number(music.duration) || 0;
+                musicDone = !hasTrack || !!music.ended ||
+                    (duration > 0 && isFinite(duration) && Number(music.currentTime || 0) >= duration - 0.12);
+            } catch (e) {}
+            if (!musicDone) return;
             TOP.clearInterval(check);
-            v3.fadeStopAll(8000);
-            if (s) { s.active = false; v3.save(); }
+            try { if (eng.music) eng.music.pause(); } catch (e1) {}
+            try {
+                if (eng.voice && (!v3.continuousRuntime || eng.voice !== v3.continuousRuntime.audio)) {
+                    eng.voice.pause();
+                    eng.voice.src = '';
+                    eng.voice = null;
+                }
+            } catch (e2) {}
+            v3.stopContinuous();
+            v3.stopAllBackgrounds();
+            v3.sleepStopPending = false;
+            eng.running = false;
+            eng.paused = true;
+            s.active = false;
+            try { if (v3.sleepTimer) TOP.clearInterval(v3.sleepTimer); } catch (e3) {}
+            v3.sleepTimer = null;
+            v3.save();
+            v3.uiRefresh();
         }, 400);
         v3.uiRefresh();
     };
@@ -2506,6 +2565,7 @@
     v3.cancelSleep = function(save) {
         try { if (v3.sleepTimer) TOP.clearInterval(v3.sleepTimer); } catch (e) {}
         v3.sleepTimer = null;
+        v3.sleepStopPending = false;
         if (v3.state.sleep) v3.state.sleep.active = false;
         if (save !== false) v3.save();
         v3.uiRefresh();
