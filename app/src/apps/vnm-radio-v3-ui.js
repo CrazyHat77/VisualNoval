@@ -154,26 +154,91 @@
 
     function V(cls, text) { return E('div', cls || '', text === undefined ? '' : text); }
 
+    function songCover(song) {
+        return String(song && (song.cover || song.coverUrl || song.pic || song.picture) || '').trim();
+    }
+
+    /*
+     * Every radio surface shares one resolved cover per song. The base player,
+     * bottom bar and playlist grid used to start independent picture lookups
+     * before the first one had completed, which made the now-playing card lag.
+     */
+    var vnr3CoverCache = {};
+    var vnr3CoverPending = {};
     var vnr3BaseFetchPic = _fetchPic;
-    _fetchPic = function(song, cb) {
-        var direct = song && (song.cover || song.pic || song.picture || song.coverUrl);
-        if (!direct && song) {
-            var key = _songKey(song);
+
+    function rememberSongCover(song, url) {
+        url = String(url || '').trim();
+        if (!song || !url) return false;
+        var key = _songKey(song);
+        if (key) vnr3CoverCache[key] = url;
+        var changed = false;
+        function apply(target) {
+            if (!target || key && _songKey(target) !== key) return;
+            if (target.cover !== url || target.coverUrl !== url) changed = true;
+            target.cover = url;
+            target.coverUrl = url;
+        }
+        apply(song);
+        if (!key) return changed;
+        if (eng.current && eng.current.song) apply(eng.current.song);
+        (eng.queue || []).forEach(function(item) { apply(item && item.song); });
+        v3.playlists().forEach(function(pl) {
+            (pl.songs || []).forEach(apply);
+        });
+        ((eng.store && eng.store.favoriteSongs) || []).forEach(apply);
+        return changed;
+    }
+
+    function knownSongCover(song) {
+        if (!song) return '';
+        var direct = songCover(song);
+        var key = _songKey(song);
+        if (!direct && key) direct = vnr3CoverCache[key] || '';
+        if (!direct && key) {
             v3.playlists().some(function(pl) {
                 return (pl.songs || []).some(function(savedSong) {
-                    if (_songKey(savedSong) !== key || !savedSong.cover) return false;
-                    direct = savedSong.cover;
-                    return true;
+                    if (_songKey(savedSong) !== key) return false;
+                    direct = songCover(savedSong);
+                    return !!direct;
                 });
             });
         }
+        if (direct) rememberSongCover(song, direct);
+        return direct;
+    }
+
+    _fetchPic = function(song, cb) {
+        cb = cb || function() {};
+        var direct = knownSongCover(song);
         if (direct) {
-            song.cover = song.cover || direct;
-            song.coverUrl = direct;
             cb(direct);
             return;
         }
-        return vnr3BaseFetchPic(song, cb);
+        if (!song) {
+            cb('');
+            return;
+        }
+        var key = _songKey(song);
+        if (!key) return vnr3BaseFetchPic(song, cb);
+        if (vnr3CoverPending[key]) {
+            vnr3CoverPending[key].push(cb);
+            return;
+        }
+        vnr3CoverPending[key] = [cb];
+        return vnr3BaseFetchPic(song, function(url) {
+            var callbacks = vnr3CoverPending[key] || [];
+            delete vnr3CoverPending[key];
+            var changed = url ? rememberSongCover(song, url) : false;
+            callbacks.forEach(function(done) {
+                try { done(url || ''); } catch (e) {}
+            });
+            if (changed) {
+                try { eng.saveQueue(); } catch (e2) {}
+                try { eng.saveStore(); } catch (e3) {}
+                v3.uiRefresh();
+            }
+        });
     };
     if (!eng.__v3FavoriteMediaWrapped) {
         eng.__v3FavoriteMediaWrapped = true;
@@ -296,12 +361,14 @@
     function playlistCover(pl) {
         if (pl.id === 'now-playing') {
             var now = curSong();
-            return (now && (now.cover || now.pic)) || '';
+            return knownSongCover(now);
         }
-        if (pl.cover) return pl.cover;
         var songs = pl.songs || [];
-        for (var i = songs.length - 1; i >= 0; i--) if (songs[i].cover) return songs[i].cover;
-        return '';
+        for (var i = songs.length - 1; i >= 0; i--) {
+            var cover = knownSongCover(songs[i]);
+            if (cover) return cover;
+        }
+        return String(pl.cover || '').trim();
     }
 
     function openCreatePlaylist() {
@@ -491,6 +558,7 @@
             list.forEach(function(pl) {
                 if (q && String(pl.name || '').toLowerCase().indexOf(q) < 0) return;
                 var card = V('vnr3-pl-card' + (pl.system ? ' system' : ''));
+                card.dataset.playlistId = pl.id;
                 var cover = V('vnr3-pl-cover');
                 var src = playlistCover(pl);
                 if (src) {

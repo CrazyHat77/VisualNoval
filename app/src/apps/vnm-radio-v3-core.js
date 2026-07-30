@@ -3,10 +3,10 @@
  * It deliberately uses ES5 syntax because the radio runs inside SillyTavern webviews.
  */
 (function vnr3InstallCore() {
-    if (eng.v3 && eng.v3.version >= 3.97) return;
+    if (eng.v3 && eng.v3.version >= 3.98) return;
 
     var v3 = eng.v3 = {
-        version: 3.97,
+        version: 3.98,
         audio: {},
         continuousRuntime: null,
         sleepTimer: null,

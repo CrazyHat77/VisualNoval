@@ -28,19 +28,29 @@
               {
                 id: 'playlist-test',
                 name: '测试歌单',
-                songs: [{
-                  id: 'rain-test',
-                  title: '雨声',
-                  artist: '环境音',
-                  url: 'about:blank',
-                  advanced: {
-                    volumeMode: 'global',
-                    volume: 55,
-                    duckMode: 'follow',
-                    duckVolume: 20,
-                    loop: true
+                cover: 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=',
+                songs: [
+                  {
+                    id: 'rain-test',
+                    title: '雨声',
+                    artist: '环境音',
+                    url: 'about:blank',
+                    cover: 'data:image/gif;base64,R0lGODlhAQABAIAAAAD/AP///ywAAAAAAQABAAACAUwAOw==',
+                    advanced: {
+                      volumeMode: 'global',
+                      volume: 55,
+                      duckMode: 'follow',
+                      duckVolume: 20,
+                      loop: true
+                    }
+                  },
+                  {
+                    id: 'latest-without-cover',
+                    title: 'No cover',
+                    artist: 'Fallback test',
+                    url: 'about:blank'
                   }
-                }]
+                ]
               }
             ]
           }
@@ -90,6 +100,12 @@
                 throw new Error('studio side card did not open on first entry');
               }
             });
+            var playlistCard = document.querySelector('.vnr3-pl-card[data-playlist-id="playlist-test"]');
+            var playlistImage = playlistCard && playlistCard.querySelector('.vnr3-pl-cover img');
+            if (!playlistImage || playlistImage.getAttribute('src') !==
+                'data:image/gif;base64,R0lGODlhAQABAIAAAAD/AP///ywAAAAAAQABAAACAUwAOw==') {
+              throw new Error('playlist did not fall back to the newest song with an available cover');
+            }
             document.getElementById('result').textContent = 'PASS';
             window.__VNR_SMOKE_RESULT__ = { ok: true, version: app.version };
           } catch (error) {
