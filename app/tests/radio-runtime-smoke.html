@@ -115,6 +115,38 @@
               throw new Error('playlist did not fall back to the newest song with an available cover');
             }
             var engine = window.__vnmRadioEngine;
+            playlistCard.click();
+            var scriptButton = Array.prototype.slice.call(
+              document.querySelectorAll('.vnr3-detail-actions button')
+            ).filter(function (button) {
+              return button.textContent.trim() === '台本';
+            })[0];
+            if (!scriptButton) throw new Error('playlist script button is missing');
+            scriptButton.click();
+            var libraryPicker = document.querySelector('.vnr3-script-layer select');
+            if (!libraryPicker || libraryPicker.value !== 'playlist-test') {
+              throw new Error('script library did not open on the requested playlist');
+            }
+            engine.v3.state.continuousVersions.unshift({
+              id: 'library-refresh-test',
+              playlistId: 'now-playing',
+              title: 'Library refresh test',
+              createdAt: Date.now(),
+              favorite: false,
+              nodes: [{ id: 'refresh-speech', type: 'speech', host: 'Host', ttsText: 'Refresh' }]
+            });
+            engine.v3.uiRefresh({
+              scriptLibrary: true,
+              playlistId: 'now-playing',
+              focusPlaylist: true,
+              versionId: 'library-refresh-test'
+            });
+            libraryPicker = document.querySelector('.vnr3-script-layer select');
+            var libraryLayer = document.querySelector('.vnr3-script-layer');
+            if (!libraryPicker || libraryPicker.value !== 'now-playing' ||
+                !libraryLayer || libraryLayer.textContent.indexOf('Library refresh test') < 0) {
+              throw new Error('script library did not refresh and focus the generated script playlist');
+            }
             var pauseCalls = 0;
             var companionAudio = {
               paused: false,

@@ -10,11 +10,13 @@
         audio: {},
         continuousRuntime: null,
         sleepTimer: null,
-        uiRefresh: function() {
+        uiRefresh: function(detail) {
             try {
                 /* 高频播放进度不能调用 eng.emit()：它会让整个 studio 重新绘制，
                    造成封面、进度条、hover 与展开面板持续闪烁。 */
-                TOP.dispatchEvent(new TOP.CustomEvent('vnm-radio-v3-refresh'));
+                TOP.dispatchEvent(new TOP.CustomEvent('vnm-radio-v3-refresh', {
+                    detail: detail || null
+                }));
             } catch (e) {}
         }
     };
@@ -1659,10 +1661,18 @@
                 companionDebug.failureReason = '陪伴台本解析抛出异常：' + (parseError && parseError.message || String(parseError));
                 companionDebug.parseException = parseError && parseError.stack || String(parseError);
             }
-            recordCompanionDebug(companionDebug);
             if (!nodes.length) {
+                if (!companionDebug.failureReason) companionDebug.failureReason = '陪伴台本返回成功，但没有解析出可播放的台本节点';
+                recordCompanionDebug(companionDebug);
+                eng.busy = false;
+                var parseFailure = new Error(companionDebug.failureReason);
+                _setApiStatus('error', 'v3-companion', '解析连续台本', parseFailure, '');
+                _toast('连续台本解析失败，请重试');
+                if (options.onError) options.onError(parseFailure.message);
+                v3.uiRefresh();
                 return false;
             }
+            recordCompanionDebug(companionDebug);
             eng.busy = false;
             var version = {
                 id: uid('continuous'),
@@ -1698,7 +1708,12 @@
                 _toast('连续台本已生成');
                 v3.playContinuous(version.id);
             }
-            v3.uiRefresh();
+            v3.uiRefresh({
+                scriptLibrary: true,
+                playlistId: version.playlistId,
+                focusPlaylist: !!manual,
+                versionId: version.id
+            });
             return true;
         }, function(e) {
             eng.busy = false;

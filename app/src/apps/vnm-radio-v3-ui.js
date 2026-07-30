@@ -2026,11 +2026,22 @@
     };
 
     try {
-        TOP.addEventListener('vnm-radio-v3-refresh', function() {
+        TOP.addEventListener('vnm-radio-v3-refresh', function(event) {
             try {
                 stage.querySelectorAll('.vnr3-bg-row').forEach(function(row) {
                     if (row && typeof row.__vnr3SyncBackground === 'function') row.__vnr3SyncBackground();
                 });
+                var detail = event && event.detail;
+                if (detail && detail.scriptLibrary) {
+                    if (detail.focusPlaylist && detail.playlistId) {
+                        u.v3ScriptLibraryPlaylistId = detail.playlistId;
+                        savePos();
+                    }
+                    var scriptBody = stage.querySelector('.vnr3-script-layer .vnr3-script-body');
+                    if (scriptBody && typeof scriptBody.__vnr3Refresh === 'function') {
+                        scriptBody.__vnr3Refresh();
+                    }
+                }
                 if (u.mode === 'studio') {
                     /* 计时、TTS 进度等高频状态只原位更新。整块重绘会让进度条、
                        hover 和打开的 details 在每次 refresh 时闪烁或复位。 */
