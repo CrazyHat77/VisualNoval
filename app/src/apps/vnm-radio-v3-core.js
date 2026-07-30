@@ -806,6 +806,7 @@
             { group: '请求模式', key: 'v3ShortPersonaEnabled', type: 'toggle', label: '使用 Artist 中设置的电台简短人设', default: false },
             { group: '请求模式', key: 'v3OmitRecentHostTalk', type: 'toggle', label: '不发送历史台本（保留主动聊天）', default: false },
             { group: '请求模式', key: 'v3CompanionAutoRequest', type: 'toggle', label: '自动请求新台本（陪伴模式）', default: true },
+            { group: '请求模式', key: 'v3ScriptRetryCount', type: 'number', label: '请求台本失败后自动重试次数', default: 1, min: 0, max: 10, step: 1 },
             { group: '请求模式', key: 'v3CompanionWords', type: 'number', label: '陪伴模式目标字数', default: 3000, min: 300, max: 20000, step: 100 },
             { group: '请求模式', key: 'v3PauseMinCount', type: 'number', label: '连续台本最少停顿节点', default: 3, min: 0, max: 100 },
             { group: '请求模式', key: 'v3PauseMaxCount', type: 'number', label: '连续台本最多停顿节点', default: 8, min: 0, max: 100 },
@@ -1032,6 +1033,31 @@
         return targets.slice(0, limit);
     }
 
+    function requestScriptChat(messages, label, statusType, onResponse, onFinalError) {
+        var retryLimit = Math.max(0, Math.min(10, _num(cfg.v3ScriptRetryCount, 1)));
+        var retriesUsed = 0;
+        function fail(error) {
+            if (retriesUsed < retryLimit) {
+                retriesUsed++;
+                _setApiStatus('loading', statusType, label + ' · 自动重试 ' + retriesUsed + '/' + retryLimit, '', '');
+                _toast(label + '失败，正在自动重试（' + retriesUsed + '/' + retryLimit + '）');
+                TOP.setTimeout(run, 650);
+                return;
+            }
+            onFinalError(error);
+        }
+        function run() {
+            _chatOnce(messages, function(text) {
+                try {
+                    if (onResponse(text, retriesUsed) === false) fail('模型返回的台本格式无法解析');
+                } catch (responseError) {
+                    fail(responseError && responseError.message || String(responseError));
+                }
+            }, fail);
+        }
+        run();
+    }
+
     v3.requestLinkedScripts = function(manual, selectedIds) {
         if (v3.songScriptsSuppressed()) {
             if (manual) _toast('陪伴模式正在使用长台本，不请求歌曲台本');
@@ -1066,11 +1092,16 @@
             outputRequirement: '最终只返回合法 JSON：' + output
         });
         _setApiStatus('loading', 'v3-linked', '请求曲目关联台本', '', '');
-        _chat([{ role: 'system', content: prompt }, { role: 'user', content: '请为这些曲目补写对应台本，并严格保留每个 key。' }], function(text) {
-            eng.scriptBusy = false;
+        requestScriptChat([{ role: 'system', content: prompt }, { role: 'user', content: '请为这些曲目补写对应台本，并严格保留每个 key。' }],
+        '请求曲目关联台本', 'v3-linked', function(text) {
             var scripts = _scriptsFromReturn(text) || [];
             var byKey = {};
             scripts.forEach(function(s) { byKey[s.key] = s; });
+            var hasUsableScript = targets.some(function(it) {
+                return byKey[it.v3ScriptKey] && byKey[it.v3ScriptKey].say;
+            });
+            if (!hasUsableScript) return false;
+            eng.scriptBusy = false;
             var count = 0;
             targets.forEach(function(it) {
                 var sc = byKey[it.v3ScriptKey];
@@ -1095,6 +1126,7 @@
             _toast('已更新 ' + count + ' 首歌曲的台本');
             v3.uiRefresh();
             if (eng.current && eng.current.say && !eng.current.spoken) _speakItem(eng.current, false);
+            return true;
         }, function(e) {
             eng.scriptBusy = false;
             targets.forEach(function(it) { delete it.v3ScriptKey; });
@@ -1407,14 +1439,15 @@
             request: { targetWords: words, systemPromptChars: prompt.length, userPromptChars: 10 }
         });
         _setApiStatus('loading', 'v3-companion', '请求连续台本', '', '');
-        _chat([{ role: 'system', content: prompt }, { role: 'user', content: '请生成连续陪伴台本。' }], function(text) {
-            eng.busy = false;
+        requestScriptChat([{ role: 'system', content: prompt }, { role: 'user', content: '请生成连续陪伴台本。' }],
+        '请求连续台本', 'v3-companion', function(text, retryAttempt) {
             var companionDebug = {
                 source: 'request-success',
                 route: routeDebug,
                 request: { targetWords: words, systemPromptChars: prompt.length, userPromptChars: 10 },
                 content: String(text || ''),
-                contentChars: String(text || '').length
+                contentChars: String(text || '').length,
+                retryAttempt: retryAttempt
             };
             var nodes = [];
             try {
@@ -1425,10 +1458,9 @@
             }
             recordCompanionDebug(companionDebug);
             if (!nodes.length) {
-                _setApiStatus('error', 'v3-companion', '请求连续台本', '返回中没有可播放节点', '');
-                _toast('连续台本格式无法解析');
-                return;
+                return false;
             }
+            eng.busy = false;
             var version = {
                 id: uid('continuous'),
                 playlistId: options.playlistId || (v3.currentPlaylist() || {}).id || 'now-playing',
@@ -1464,6 +1496,7 @@
                 v3.playContinuous(version.id);
             }
             v3.uiRefresh();
+            return true;
         }, function(e) {
             eng.busy = false;
             recordCompanionDebug({
