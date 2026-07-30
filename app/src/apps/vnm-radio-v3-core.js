@@ -3,10 +3,10 @@
  * It deliberately uses ES5 syntax because the radio runs inside SillyTavern webviews.
  */
 (function vnr3InstallCore() {
-    if (eng.v3 && eng.v3.version >= 3.95) return;
+    if (eng.v3 && eng.v3.version >= 3.96) return;
 
     var v3 = eng.v3 = {
-        version: 3.95,
+        version: 3.96,
         audio: {},
         continuousRuntime: null,
         sleepTimer: null,
@@ -51,7 +51,9 @@
             matchError: String(song.matchError || '').trim(),
             advanced: song.advanced ? clone(song.advanced) : null,
             scriptVersions: Object.prototype.toString.call(song.scriptVersions) === '[object Array]' ? clone(song.scriptVersions) : [],
-            selectedScriptId: String(song.selectedScriptId || '')
+            selectedScriptId: String(song.selectedScriptId || ''),
+            selectedScriptIds: Object.prototype.toString.call(song.selectedScriptIds) === '[object Array]' ? clone(song.selectedScriptIds) : [],
+            scriptSelectionMode: song.scriptSelectionMode === 'random' ? 'random' : 'single'
         };
     }
 
@@ -157,7 +159,25 @@
         st.sleep = st.sleep || null;
         st.scriptPlaylistSelection = st.scriptPlaylistSelection && typeof st.scriptPlaylistSelection === 'object' ? st.scriptPlaylistSelection : {};
         st.scriptPlaybackQueues = st.scriptPlaybackQueues && typeof st.scriptPlaybackQueues === 'object' ? st.scriptPlaybackQueues : {};
-        st.schema = 5;
+        if (Object.prototype.toString.call(st.localScriptQueue) !== '[object Array]') {
+            st.localScriptQueue = [];
+            Object.keys(st.scriptPlaybackQueues).forEach(function(playlistId) {
+                (st.scriptPlaybackQueues[playlistId] || []).forEach(function(id) {
+                    if (st.localScriptQueue.indexOf(id) < 0) st.localScriptQueue.push(id);
+                });
+            });
+        }
+        var availableContinuousIds = {};
+        st.continuousVersions.forEach(function(version) { if (version && version.id) availableContinuousIds[version.id] = true; });
+        var seenLocalIds = {};
+        st.localScriptQueue = st.localScriptQueue.filter(function(id) {
+            if (!availableContinuousIds[id] || seenLocalIds[id]) return false;
+            seenLocalIds[id] = true;
+            return true;
+        });
+        st.localScriptPlayMode = /^(once|repeat|shuffle)$/.test(st.localScriptPlayMode || '') ? st.localScriptPlayMode : 'once';
+        st.localScriptMode = !!st.localScriptMode;
+        st.schema = 6;
         return st;
     }
 
@@ -473,7 +493,13 @@
         if (!it.song._trackId && song.sourceId) it.song._trackId = song.sourceId;
         var versions = song.scriptVersions || [];
         var selected = null;
-        if (song.selectedScriptId) {
+        if (song.scriptSelectionMode === 'random' && song.selectedScriptIds && song.selectedScriptIds.length) {
+            var candidates = versions.filter(function(version) {
+                return version && song.selectedScriptIds.indexOf(version.id) >= 0 && version.say;
+            });
+            if (candidates.length) selected = candidates[Math.floor(Math.random() * candidates.length)];
+        }
+        if (!selected && song.selectedScriptId) {
             for (var i = 0; i < versions.length; i++) if (versions[i].id === song.selectedScriptId) selected = versions[i];
         }
         if (!selected && versions.length) selected = versions[0];
@@ -643,6 +669,8 @@
             version.label = data.label || version.label || '手动保存';
             song.scriptVersions = trimScriptVersions(song.scriptVersions, 5);
             song.selectedScriptId = id;
+            song.selectedScriptIds = [id];
+            song.scriptSelectionMode = 'single';
             savedVersion = version;
         });
         item.say = say;
@@ -660,7 +688,11 @@
         var versions = v3.scriptVersionsForItem(item), selected = null;
         for (var i = 0; i < versions.length; i++) if (versions[i].id === id) selected = versions[i];
         if (!selected) return false;
-        itemSongRefs(item).forEach(function(song) { song.selectedScriptId = id; });
+        itemSongRefs(item).forEach(function(song) {
+            song.selectedScriptId = id;
+            song.selectedScriptIds = [id];
+            song.scriptSelectionMode = 'single';
+        });
         item.say = selected.say || '';
         item.host = selected.host || '';
         item.needsScript = !item.say;
@@ -1315,6 +1347,10 @@
 
     v3.requestCompanion = function(manual, options) {
         options = options || {};
+        if (v3.state.localScriptMode) {
+            if (manual) _toast('本地台本播放模式已开启，不会请求新的陪伴台本');
+            return false;
+        }
         if (eng.busy) return false;
         if (!manual && !v3.consumeAutoRequest()) return false;
         eng.busy = true;
@@ -1449,6 +1485,7 @@
             v3.state.activeContinuousIds[playlistId] = replacement ? replacement.id : '';
         }
         if (v3.state.activeContinuousId === id) v3.state.activeContinuousId = '';
+        v3.state.localScriptQueue = (v3.state.localScriptQueue || []).filter(function(itemId) { return itemId !== id; });
         (version.audioCacheKeys || []).forEach(function(key) { cacheRecordDelete('audio', key).catch(function() {}); });
         (version.audioAssets || []).forEach(function(asset) {
             if (asset && asset.blobKey) cacheRecordDelete('audio', asset.blobKey).catch(function() {});
@@ -1874,7 +1911,7 @@
     }
 
     function companionAutoRequestEnabled() {
-        return bool(cfg.v3CompanionAutoRequest, true) && v3.state.mode === 'companion';
+        return !v3.state.localScriptMode && bool(cfg.v3CompanionAutoRequest, true) && v3.state.mode === 'companion';
     }
 
     function nextCompanionTriggerIndex(items) {
@@ -2136,12 +2173,27 @@
             rt.currentItem = null;
             rt.currentText = '';
             rt.currentHost = '';
+            if (v3.continuousSequence && v3.continuousSequence.mode === 'shuffle' && v3.continuousSequence.ids.length) {
+                var previousIndex = v3.continuousSequence.index;
+                var randomIndex = Math.floor(Math.random() * v3.continuousSequence.ids.length);
+                if (v3.continuousSequence.ids.length > 1 && randomIndex === previousIndex) {
+                    randomIndex = (randomIndex + 1) % v3.continuousSequence.ids.length;
+                }
+                v3.continuousSequence.index = randomIndex;
+                v3.playContinuous(v3.continuousSequence.ids[randomIndex], { preserveSequence: true });
+                return;
+            }
             if (v3.continuousSequence && v3.continuousSequence.index < v3.continuousSequence.ids.length - 1) {
                 v3.continuousSequence.index++;
                 v3.playContinuous(v3.continuousSequence.ids[v3.continuousSequence.index], { preserveSequence: true });
                 return;
             }
             if (v3.continuousSequence) {
+                if (v3.continuousSequence.mode === 'repeat' && v3.continuousSequence.ids.length) {
+                    v3.continuousSequence.index = 0;
+                    v3.playContinuous(v3.continuousSequence.ids[0], { preserveSequence: true });
+                    return;
+                }
                 v3.continuousSequence = null;
                 rt.finished = true;
                 v3.uiRefresh();
@@ -2328,9 +2380,25 @@
     v3.playContinuousSequence = function(ids) {
         ids = (ids || []).filter(function(id) { return !!v3.continuousById(id); });
         if (!ids.length) return false;
-        v3.continuousSequence = { ids: ids.slice(), index: 0 };
+        v3.continuousSequence = { ids: ids.slice(), index: 0, mode: 'once' };
         v3.playContinuous(ids[0], { preserveSequence: true });
         return true;
+    };
+
+    v3.playLocalScriptQueue = function() {
+        var ids = (v3.state.localScriptQueue || []).filter(function(id) { return !!v3.continuousById(id); });
+        if (!ids.length) return false;
+        var mode = v3.state.localScriptPlayMode || 'once';
+        var index = mode === 'shuffle' && ids.length > 1 ? Math.floor(Math.random() * ids.length) : 0;
+        v3.continuousSequence = { ids: ids.slice(), index: index, mode: mode, local: true };
+        v3.playContinuous(ids[index], { preserveSequence: true });
+        return true;
+    };
+
+    v3.setLocalScriptMode = function(on) {
+        v3.state.localScriptMode = !!on;
+        v3.save();
+        v3.uiRefresh();
     };
 
     v3.pauseContinuous = function() {

@@ -109,7 +109,7 @@ page = page.replace(uiAnchor, function() {
 });
 
 data.pageCode = page;
-data.version = '3.9.5-script-library-and-sleep';
-data.description = '多主持人私人电台 · 陪伴台本持久记录 · 本地台本播放列表 · 睡眠结束统一停播 · 稳定玻璃界面';
+data.version = '3.9.6-global-local-scripts';
+data.description = '多主持人私人电台 · 全局本地台本队列与循环播放 · 歌曲台本版本可视化管理 · 稳定玻璃界面';
 fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2) + '\n');
 console.log('[build-radio-v3] injected core/UI into', jsonPath);
