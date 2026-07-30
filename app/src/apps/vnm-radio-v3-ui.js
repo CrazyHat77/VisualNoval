@@ -455,7 +455,6 @@
 
     function playPlaylist(pl) {
         if (pl.id === 'now-playing') {
-            v3.setMode('playlist');
             eng.playPause();
             return;
         }

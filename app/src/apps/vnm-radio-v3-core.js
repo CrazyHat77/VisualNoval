@@ -536,7 +536,7 @@
             if (!eng.current || !eng.running) eng.current = null;
         }
         eng.saveQueue();
-        v3.state.mode = 'playlist';
+        /* Loading a playlist must preserve the mode explicitly chosen by the user. */
         v3.state.activePlaylistId = id;
         if (!append) v3.state.playbackPlaylistId = id;
         v3.save();
