@@ -744,45 +744,18 @@
         return next;
     };
 
-    var COMPANION_PROMPT_DEFAULT = [
-        '你是专业的私人电台陪伴台本写作者。请让用户选择的主持人以角色本人的身份，共同主持一段可以持续播放的长篇陪伴节目。',
+    var COMPANION_TECHNICAL_TAIL = [
         '',
-        '【主持人】',
-        '{{主持人列表}}',
+        '【篇幅要求】',
+        '成稿约 {{目标字数}} 字。字数统计必须严格以所有 speech.ttsText 中实际会被主持人口播的正文合计为准，并使该口播正文达到约 {{目标字数}} 字。JSON 键名与结构、host、displayText 中与口播重复的内容、VoiceTag、pause 标记、秒数、转义符、空白及任何元数据均不计入此字数要求；不得用增加标签或结构字符来凑字数。',
         '',
-        '【主持人角色设定】',
-        '{{角色设定}}',
-        '',
-        '【用户】',
-        '{{用户名称}}',
-        '{{用户设定}}',
-        '',
-        '【角色与世界背景】',
-        '{{世界书}}',
-        '',
-        '【电台专用世界书】',
-        '{{电台世界书}}',
-        '',
-        '【当前剧情上下文】',
-        '{{剧情上下文}}',
-        '',
-        '{{聊天总结}}',
-        '',
-        '{{最近主播对话}}',
-        '',
-        '【用户本次要求】',
-        '{{用户输入}}',
-        '',
-        '【本次任务】',
-        '创作约 {{目标字数}} 字的连续长篇陪伴台本。主持人要自然地陪伴 {{用户名称}}，可以聊天、讲述、回应用户、分享想法或围绕当前语境展开话题，内容应连贯、耐听，避免机械报幕、空洞寒暄和反复重复相同意思。',
-        '字数统计必须严格以所有 speech.ttsText 中实际会被主持人口播的正文合计为准，并使该口播正文达到约 {{目标字数}} 字。JSON 键名与结构、host、displayText 中与口播重复的内容、VoiceTag、pause 标记、秒数、转义符、空白及任何元数据均不计入此字数要求；不得用增加标签或结构字符来凑字数。',
-        '',
+        '【共同主持规则】',
         '如果有多名主持人，他们是共同主持这段节目：可以轮流说话、互相接话、讨论、打趣、补充或回应对方，也可以由一位主导、其他人自然加入。不要固定轮流顺序，不要求每段所有人都发言，但整篇应让适合参与的主持人真正参与交流。每个 speech.host 必须使用【主持人】中出现的名字。',
         '',
         '【停顿规则】',
         '{{停顿数量要求}}',
         '{{停顿秒数要求}}',
-        '停顿是主持人说完一段内容后留给用户的独立安静时段，不是语气停顿。需要停顿时，必须在 nodes 数组中插入独立字符串标记 [pause=Ns]，例如停顿 24 秒就输出 "[pause=24s]"。标记不得放进 speech.ttsText 或 speech.displayText，也不得让主持人念出。播放停顿标记时，系统会停止请求语音并恢复背景声音，倒计时结束后再继续后面的 speech。',
+        '停顿是主持人说完一段内容后留给听众的独立安静时段，不是语气停顿。需要停顿时，必须在 nodes 数组中插入独立字符串标记 [pause=Ns]，例如停顿 24 秒就输出 "[pause=24s]"。标记不得放进 speech.ttsText 或 speech.displayText，也不得让主持人念出。播放停顿标记时，系统会停止请求语音并恢复背景声音，倒计时结束后再继续后面的 speech。',
         '',
         '【语言与节点规则】',
         '1. speech.ttsText 是发送给 TTS 的文本，只能使用 {{朗读语言}}。',
@@ -794,15 +767,132 @@
         '【输出要求】',
         '{{输出格式要求}}',
         '不要输出 Markdown、代码块、标题、解释或 JSON 之外的任何文字。JSON 中所有字符串必须正确转义并完整闭合。'
-    ].join('\n');
+    ];
+
+    var COMPANION_PROMPT_DEFAULT = [
+        '你是专业的私人电台陪伴台本写作者。请为 {{主持人列表}} 写一份专业的电台陪伴类主持台本，让这些角色共同主持一段可以持续播放的长篇陪伴节目。',
+        '这里是一个独立、假设性的私人电台世界。主持人 {{主持人列表}} 正在面向所有听众主持节目、分享话题；当【用户信息】存在时，他们知道其中的用户也是听众之一，但专业主持人不会直呼其名、持续单独对话或把节目变成一对一聊天，而会在面向全体听众的播报中，以不点名的关照、含蓄回应、只有对方可能听懂的暗线或留白自然地增加互动。',
+        '',
+        '【曲目不可知原则｜必须严格遵守】',
+        '本台本与播放器中的实际曲目完全解耦。音乐由用户在外部独立、随机播放，模型既不知道当前曲目，也不负责选歌或排歌。主持人不得报幕、报歌名或歌手，不得说“刚才这首”“接下来这首”，不得猜测当前或下一首音乐的语言、国家、风格、歌词、主题、节奏、年代、情绪或演唱者，不得承诺播放任何歌曲，也不得把话题转折建立在某首歌已经或即将播放的假设上。可以把音乐仅视为不可描述的环境背景，但所有台词即使覆盖到任意随机曲目上也必须成立。',
+        '',
+        '【主持人】',
+        '{{主持人列表}}',
+        '',
+        '【主持人角色设定】',
+        '{{角色设定}}',
+        '',
+        '{{用户信息}}',
+        '',
+        '【角色与世界背景】',
+        '{{世界书}}',
+        '',
+        '【电台专用世界书】',
+        '{{电台世界书}}',
+        '',
+        '{{剧情上下文}}',
+        '',
+        '{{聊天总结}}',
+        '',
+        '{{最近主播对话}}',
+        '',
+        '【用户本次要求】',
+        '{{用户输入}}',
+        '',
+        '【本次任务】',
+        '写一段真正面向电台听众的连续节目。主持人可以从一个具体而有趣的观察、故事、疑问或生活片段进入，逐渐展开联想、观点、讲述与共同主持人的交流；在合适处向所有听众提出无需立即回答的问题并留下停顿。节目应有清晰但不刻板的起承转合，内容连贯、耐听，有事实、有细节、有感受，避免机械报幕、空洞寒暄、廉价鸡汤、反复安慰和持续强调“陪伴”。角色可以保留原本的口癖、知识范围、幽默与价值观，但必须具备专业主持人的倾听感、节奏感和公共表达意识。',
+        '当【用户信息】、【剧情上下文】、聊天总结或最近主动聊天存在时，只把它们作为暗线素材：不得复述隐私、不得暴露“我读过资料”、不得让其他听众察觉节目专为某个人定制。若这些区块为空，直接写普适节目，不猜测缺失信息。',
+    ].concat(COMPANION_TECHNICAL_TAIL).join('\n');
+
+    var COMPANION_PROMPT_EMOTIONAL = [
+        '你是资深的深夜情感与人文电台主笔。请只依据主持人角色设定，为 {{主持人列表}} 创作一份具有文学质感、思想深度和生活温度的长篇电台台本。这个预设不使用用户信息、不使用剧情上下文，也不把节目写给某个特定的人；主持人面对的是一群彼此陌生、正在各自生活里收听节目的普通听众。',
+        '',
+        '【曲目不可知原则｜必须严格遵守】',
+        '台本与实际播放曲目完全解耦，音乐由用户在外部随机播放。主持人不知道任何正在播放或将要播放的曲目。禁止报幕、点歌、猜歌、评价“这首歌”，禁止提及具体歌曲的语言、歌词、风格、情绪、年代或歌手，也禁止用“听完这首”“下一首”组织节目。每一句话都必须能够覆盖在任意音乐或无音乐环境中独立成立。',
+        '',
+        '【主持人】',
+        '{{主持人列表}}',
+        '',
+        '【主持人角色设定｜唯一人物依据】',
+        '{{角色设定}}',
+        '',
+        '【创作定位】',
+        '写一档真正可收听的情感人文节目，而不是励志语录合集、散文辞藻堆砌或心理咨询。每次从下列素材疆域中选择少量彼此能够自然生长的方向，形成一个中心命题；不要把清单逐项讲完，也不要在台词中说“今天我们来讨论第几点”。主持人的表达应从具体经验进入抽象思考，再回到可触摸的生活。',
+        '',
+        '【可选择的话题疆域】',
+        '1. 时间与记忆：旧物为什么保存气味；某个季节、房间、街角如何成为记忆的容器；遗忘是否也是温柔；成长后如何重新理解童年；迟到的理解、没有寄出的信、未完成的告别。',
+        '2. 关系与边界：亲密和自由如何共存；喜欢、依赖、习惯与责任的区别；友情中的沉默和疏远；家人之间笨拙的爱；错过、和解、失望、嫉妒、体面地离开；如何承认关系已经改变。',
+        '3. 自我与选择：成为自己究竟意味着什么；理想自我与现实生活的距离；羞耻、脆弱、勇气、后悔和重新开始；普通人的尊严；不被看见的努力；允许自己改变答案。',
+        '4. 孤独与共同生活：城市里擦肩而过的人；深夜仍亮着的窗；陌生人的微小善意；独处与被遗弃感的区别；人与人短暂相遇却彼此留下痕迹。',
+        '5. 日常烟火：清晨市场、末班公交、便利店、厨房水汽、晾晒的衣服、雨后的鞋印、修补旧物、排队、搬家、归途、灯下的一顿饭。用动作、声音、温度、气味和空间细节承载情绪，不把日常只当抒情背景。',
+        '6. 文学与叙事：人物为何做出某种选择；神话、民间故事、诗歌意象、书信、日记和小说结构如何照见生活。可以准确转述公共文化知识，但不得伪造名言、杜撰作者经历或大段复述受版权保护的作品。',
+        '7. 视觉艺术与审美：一幅画的留白、光线和视线；摄影如何保存偶然；建筑如何塑造人的距离；电影镜头、舞台、舞蹈、手工艺与旧城空间如何表达难以直说的感受。重点是观察和思考，不卖弄术语。',
+        '8. 哲学与存在：时间、自由、命运、偶然、身份、意义、有限性、死亡意识、幸福、真实与责任。必须用生活例子把抽象概念讲清，不冒充学术讲座，不用玄虚结论压过人的真实处境。',
+        '9. 自然与尺度：潮汐、植物生长、候鸟、岩石、月相、天气和季节如何改变人理解时间的方式。不得把自然现象强行神秘化，也不要捏造科学事实。',
+        '10. 工作与现代生活：疲惫、重复劳动、绩效、等待回复、社交表演、信息过载、消费欲望、租住空间、通勤和休息的内疚。既理解现实压力，也不提供轻率万能答案。',
+        '',
+        '【文学与角色要求】',
+        '语言要有文化与文艺气质，但“文艺”来自准确观察、节制比喻、叙事结构和思想，而不是密集形容词。主持人的学识、词汇和举例方式必须符合角色设定：博学者可以旁征博引；阅历少、文化程度低或表达粗粝的角色，也可以从身体经验、劳动、家常记忆和直觉出发抵达真诚的感性时刻，不能突然使用不属于他的学术腔。允许观点有棱角、有犹豫、有未解之处，不强迫每个话题得出积极结论。',
+        '整篇至少包含若干具体场景或微型故事，并在段落之间保留可呼吸的转场。不要直接诊断听众，不要假定听众经历过某种创伤，不要以“你一定”“所有人都”替听众下结论；可以用开放而克制的方式邀请听众自己理解。',
+    ].concat(COMPANION_TECHNICAL_TAIL).join('\n');
+
+    var COMPANION_PROMPT_SLEEP = [
+        '你是专业的成人睡前电台与舒缓叙事台本写作者。请为 {{主持人列表}} 创作一份可以长时间聆听的低刺激哄睡节目。目标不是反复命令听众睡觉，而是用安全、缓慢、具体、无压力的内容逐步降低注意强度，让清醒也被允许，让困意有机会自然出现。',
+        '',
+        '【曲目不可知原则｜必须严格遵守】',
+        '台本与播放器中的实际曲目完全解耦，音乐由用户在外部随机播放。主持人不知道当前或下一首曲目。禁止报幕、点歌、猜测或描述“这首歌”的语言、歌词、风格、节奏、情绪、年代或歌手；禁止使用“随着这首音乐”“下一首会更安静”等表述。引导只能依靠主持人的语言本身，并且在任意随机曲目、环境声或无音乐时都成立。',
+        '',
+        '【主持人】',
+        '{{主持人列表}}',
+        '',
+        '【主持人角色设定】',
+        '{{角色设定}}',
+        '',
+        '{{用户信息}}',
+        '',
+        '【角色与世界背景】',
+        '{{世界书}}',
+        '',
+        '【电台专用世界书】',
+        '{{电台世界书}}',
+        '',
+        '{{剧情上下文}}',
+        '',
+        '{{聊天总结}}',
+        '',
+        '{{最近主播对话}}',
+        '',
+        '【用户本次要求】',
+        '{{用户输入}}',
+        '',
+        '【创作方法】',
+        '每次选择一至三种彼此兼容的方法，形成自然节目，不要把所有方法做成清单，也不要像治疗师宣读训练步骤。可用方向如下：',
+        '1. 缓慢呼吸关注：用不强迫、不憋气的语言邀请听众感受腹部起伏、呼气后的松开、空气温度或床铺承托；不追求精确成绩，不制造“做错了”的压力。',
+        '2. 温和身体扫描：从额头、下颌、肩颈、手指、背部、腿脚等部位依次注意重量、温度和接触面，只邀请放松，不要求疼痛或不适部位用力。',
+        '3. 渐进式松弛：可以轻柔描述“觉察紧张—松开—停留”的差别；不得要求疼痛、受伤或行动不便的听众强行绷紧肌肉，可改为想象该部位逐渐松开。',
+        '4. 多感官安全场景想象：安静花园、雨夜屋檐、山间木屋、海边清晨、夜行列车、图书馆闭馆后、窗边咖啡馆、柔和旅店等。循序描写光线、材质、温度、远近声音、气味与身体触感，让场景安全、可退出、没有威胁。',
+        '5. 低冲突漫游叙事：散步、乘船、慢车旅行、整理书架、照料植物、准备热饮、烘焙、缝补、逛清晨市场、观察小镇入夜。事件应可预测、低风险、没有悬念追逐、谜题、争吵、危险或必须等到结局的信息。',
+        '6. 平静的知识与物件故事：讲一件普通器物的制作过程、一座房屋一天里的光、植物缓慢生长、纸张与书页、织物、陶器、邮局、灯塔值守等。事实不确定时宁可不讲，不捏造历史或科学知识。',
+        '7. 放下白天的仪式：把未完成事项想象为暂存进抽屉、篮子、车站寄存柜或明天的信封；承认事情尚未解决，但今晚不必继续处理。不得许诺所有问题醒来就会消失。',
+        '8. 无评价的日常回顾：只拾取一天里中性或微小的细节，如喝过的水、走过的路、见过的光，不做绩效总结，不追问遗憾，不诱发强烈反省。',
+        '9. 重复与递减：使用轻微重复的句式、稳定意象和逐渐拉长的停顿；后半段减少新人物、新信息、问题和转折，使语言从叙事慢慢过渡到简单感官与留白。',
+        '',
+        '【哄睡语气与安全边界】',
+        '语速感要慢，句法清楚，音量想象稳定，避免突然兴奋、密集笑点、恐怖意象、强冲突、倒计时压力和频繁提问。不要反复说“快睡”“必须睡着”“别想了”，也不要因听众仍清醒而责备；可以明确告诉听众无需努力证明自己睡着，走神、调整姿势或暂时清醒都没有关系。',
+        '这是一段舒缓节目，不是医疗治疗。不得诊断失眠、创伤、焦虑或身体疾病，不承诺治愈，不指导停药，不使用催眠控制暗示。涉及呼吸、身体或想象练习时始终给予跳过、停止或只听故事的自由。',
+        '若【用户信息】或【剧情上下文】存在，只选取安全、低唤醒度的细节做极轻的个性化，不复述冲突、危险、创伤、任务压力或隐私；若为空，直接写普适的成人睡前节目。角色可以保留个性，但尖锐、吵闹或攻击性的特征要转译为较低刺激、仍可辨认的夜间表达。',
+    ].concat(COMPANION_TECHNICAL_TAIL).join('\n');
 
     function addFields() {
         var existing = {};
         FIELDS.forEach(function(f) {
             existing[f.key] = 1;
             if (f.key === 'autoRequest') f.label = '自动请求下一批（推荐模式）';
+            if (f.key === 'contextSource' || f.key === 'stHistN') f.dependsOn = 'v3IncludeStoryContext';
         });
         var list = [
+            { group: '上下文', key: 'v3IncludeUserInfo', type: 'toggle', label: '发送用户名称与用户设定（总开关）', default: true },
+            { group: '上下文', key: 'v3IncludeStoryContext', type: 'toggle', label: '发送剧情上下文（总开关）', default: true },
             { group: '请求模式', key: 'v3ShortPersonaEnabled', type: 'toggle', label: '使用 Artist 中设置的电台简短人设', default: false },
             { group: '请求模式', key: 'v3OmitRecentHostTalk', type: 'toggle', label: '不发送历史台本（保留主动聊天）', default: false },
             { group: '请求模式', key: 'v3CompanionAutoRequest', type: 'toggle', label: '自动请求新台本（陪伴模式）', default: true },
@@ -816,7 +906,7 @@
             { group: '提示词', key: 'v3TaskModulePrompt', type: 'textarea-presets', label: '当前任务要求模块', rows: 6, variables: ['{{当前任务要求}}'], default: '请严格执行当前请求模式定义的任务；不要额外推荐用户没有要求的内容。' },
             { group: '提示词', key: 'v3RandomModulePrompt', type: 'textarea-presets', label: '随机播放独立台本模块', rows: 7, variables: ['{{随机播放要求}}'], default: '当前曲目将以随机顺序播放。每首歌曲的台本必须能够独立成立，不得引用上一首或下一首，不得使用“刚才那首”“接下来”“延续前面的话题”等依赖固定顺序的表达。不同歌曲之间不得形成必须按顺序理解的情节、对话或情绪递进。' },
             { group: '提示词', key: 'v3LyricsModulePrompt', type: 'textarea-presets', label: '模型自行检索歌词模块', rows: 6, variables: ['{{歌词检索要求}}'], default: '你可以根据准确的歌名和歌手自行尝试回忆或查找歌词来理解歌曲；如果无法可靠找到，就忽略歌词。禁止编造歌词、伪造歌词内容或假装已经找到。' },
-            { group: '提示词', key: 'v3CompanionPrompt', type: 'textarea-presets', label: '陪伴模式完整提示词', rows: 20, variables: ['{{主持人列表}}', '{{用户名称}}', '{{用户设定}}', '{{角色设定}}', '{{世界书}}', '{{电台世界书}}', '{{剧情上下文}}', '{{聊天总结}}', '{{最近主播对话}}', '{{用户输入}}', '{{目标字数}}', '{{停顿数量要求}}', '{{停顿秒数要求}}', '{{朗读语言}}', '{{显示语言}}', '{{输出格式要求}}'], default: COMPANION_PROMPT_DEFAULT },
+            { group: '提示词', key: 'v3CompanionPrompt', type: 'textarea-presets', label: '陪伴模式完整提示词', rows: 20, variables: ['{{主持人列表}}', '{{用户信息}}', '{{用户名称}}', '{{用户设定}}', '{{角色设定}}', '{{世界书}}', '{{电台世界书}}', '{{剧情上下文}}', '{{聊天总结}}', '{{最近主播对话}}', '{{用户输入}}', '{{目标字数}}', '{{停顿数量要求}}', '{{停顿秒数要求}}', '{{朗读语言}}', '{{显示语言}}', '{{输出格式要求}}'], default: COMPANION_PROMPT_DEFAULT },
             { group: '提示词', key: 'v3RecommendOnlyPrompt', type: 'textarea-presets', label: '只推荐歌曲模块', rows: 8, variables: ['{{只推荐歌曲要求}}'], default: '只推荐真实存在的歌曲，不写台本、不写主持人对白。只返回歌曲 title 与 artist，不要编造 URL。' }
         ];
         list.forEach(function(f) {
@@ -825,6 +915,47 @@
                 if (cfg[f.key] === undefined) cfg[f.key] = f["default"];
             }
         });
+        var contextInsertAt = -1;
+        for (var contextIndex = 0; contextIndex < FIELDS.length; contextIndex++) {
+            if (FIELDS[contextIndex].key === 'contextSource') {
+                contextInsertAt = contextIndex;
+                break;
+            }
+        }
+        if (contextInsertAt >= 0) {
+            ['v3IncludeUserInfo', 'v3IncludeStoryContext'].forEach(function(masterKey) {
+                for (var masterIndex = 0; masterIndex < FIELDS.length; masterIndex++) {
+                    if (FIELDS[masterIndex].key !== masterKey) continue;
+                    var masterField = FIELDS.splice(masterIndex, 1)[0];
+                    if (masterIndex < contextInsertAt) contextInsertAt--;
+                    FIELDS.splice(contextInsertAt++, 0, masterField);
+                    break;
+                }
+            });
+        }
+        for (var promptFieldIndex = 0; promptFieldIndex < FIELDS.length; promptFieldIndex++) {
+            if (FIELDS[promptFieldIndex].key === 'v3CompanionPrompt') {
+                FIELDS[promptFieldIndex]["default"] = COMPANION_PROMPT_DEFAULT;
+                break;
+            }
+        }
+        if (!cfg.v3CompanionPromptSuiteV1) {
+            var oldCompanionOpening = '你是专业的私人电台陪伴台本写作者。请让用户选择的主持人以角色本人的身份，共同主持一段可以持续播放的长篇陪伴节目。';
+            if (!cfg.v3CompanionPrompt || String(cfg.v3CompanionPrompt).indexOf(oldCompanionOpening) === 0) {
+                cfg.v3CompanionPrompt = COMPANION_PROMPT_DEFAULT;
+            }
+            if (!eng.store.promptPresets) eng.store.promptPresets = {};
+            if (!eng.store.promptPresets.v3CompanionPrompt) eng.store.promptPresets.v3CompanionPrompt = [];
+            var companionPresets = eng.store.promptPresets.v3CompanionPrompt;
+            function addCompanionPreset(name, text) {
+                var exists = companionPresets.some(function(preset) { return preset && preset.n === name; });
+                if (!exists) companionPresets.push({ n: name, t: text, builtin: true });
+            }
+            addCompanionPreset('情感人文电台', COMPANION_PROMPT_EMOTIONAL);
+            addCompanionPreset('舒缓哄睡电台', COMPANION_PROMPT_SLEEP);
+            eng.saveStore();
+            cfg.v3CompanionPromptSuiteV1 = true;
+        }
         var moduleBlock = '\n\n【动态任务模块】\n{{当前任务要求}}\n{{随机播放要求}}\n{{歌词检索要求}}\n{{输出格式要求}}';
         ['promptTemplate', 'scriptRewritePrompt'].forEach(function(k) {
             if (cfg[k]) {
@@ -854,20 +985,48 @@
         function normalizeChatSummarySlot(text) {
             return String(text || '').replace(/【电台聊天总结】\s*\{\{聊天总结\}\}/g, '{{聊天总结}}');
         }
+        function normalizeStoryContextSlot(text) {
+            return String(text || '').replace(/【(?:当前)?剧情上下文】\s*\{\{剧情上下文\}\}/g, '{{剧情上下文}}');
+        }
+        function normalizeUserInfoSlot(text) {
+            return String(text || '')
+                .replace(/【用户】\s*\{\{用户名称\}\}\s*\{\{用户设定\}\}/g, '{{用户信息}}')
+                .replace(/【用户设定】\s*\{\{用户名称\}\}\s*\{\{用户设定\}\}/g, '{{用户信息}}');
+        }
         FIELDS.forEach(function(fieldDef) {
             if (!fieldDef) return;
             if (typeof fieldDef["default"] === 'string') {
                 if (fieldDef["default"].indexOf('{{最近主播对话}}') >= 0) fieldDef["default"] = normalizeRecentTalkSlot(fieldDef["default"]);
                 if (fieldDef["default"].indexOf('{{聊天总结}}') >= 0) fieldDef["default"] = normalizeChatSummarySlot(fieldDef["default"]);
+                if (fieldDef["default"].indexOf('{{剧情上下文}}') >= 0) fieldDef["default"] = normalizeStoryContextSlot(fieldDef["default"]);
+                if (fieldDef["default"].indexOf('{{用户设定}}') >= 0) fieldDef["default"] = normalizeUserInfoSlot(fieldDef["default"]);
             }
             if (fieldDef.key && typeof cfg[fieldDef.key] === 'string') {
                 if (cfg[fieldDef.key].indexOf('{{最近主播对话}}') >= 0) cfg[fieldDef.key] = normalizeRecentTalkSlot(cfg[fieldDef.key]);
                 if (cfg[fieldDef.key].indexOf('{{聊天总结}}') >= 0) cfg[fieldDef.key] = normalizeChatSummarySlot(cfg[fieldDef.key]);
+                if (cfg[fieldDef.key].indexOf('{{剧情上下文}}') >= 0) cfg[fieldDef.key] = normalizeStoryContextSlot(cfg[fieldDef.key]);
+                if (cfg[fieldDef.key].indexOf('{{用户设定}}') >= 0) cfg[fieldDef.key] = normalizeUserInfoSlot(cfg[fieldDef.key]);
             }
         });
         _saveCfg();
     }
     addFields();
+
+    var v3ContextTextSource = _contextText;
+    _contextText = function() {
+        if (!bool(cfg.v3IncludeStoryContext, true)) return '';
+        var body = String(v3ContextTextSource() || '').trim();
+        return body ? '【剧情上下文】\n' + body : '';
+    };
+
+    function radioUserInfoBlock() {
+        if (!bool(cfg.v3IncludeUserInfo, true)) return '';
+        var user = _user() || {};
+        var lines = [];
+        if (String(user.name || '').trim()) lines.push('用户名称：' + String(user.name).trim());
+        if (String(user.persona || '').trim()) lines.push('用户设定：\n' + String(user.persona).trim());
+        return lines.length ? '【用户信息】\n' + lines.join('\n') : '';
+    }
 
     function isAutomaticScriptHistory(message) {
         return !!(message && (message.kind === 'script' || message.scriptId));
@@ -988,7 +1147,35 @@
         extra = extra || {};
         var summarySlot = '__VNM_RADIO_CHAT_SUMMARY_BLOCK__';
         var preparedTpl = String(tpl || '').replace(/\{\{聊天总结\}\}/g, summarySlot);
-        var out = oldBuildCommon(preparedTpl, extra);
+        var includeUserInfo = bool(cfg.v3IncludeUserInfo, true);
+        var includeStoryContext = bool(cfg.v3IncludeStoryContext, true);
+        var userSource = _user;
+        var stHistorySource = _getSTHistory;
+        var horaeSource = _getHorae;
+        var baiBaiSource = _getBaiBaiSummary;
+        if (!includeUserInfo) {
+            _user = function() {
+                return { name: '__VNM_DISABLED_USER_NAME__', persona: '__VNM_DISABLED_USER_PERSONA__' };
+            };
+        }
+        if (!includeStoryContext) {
+            _getSTHistory = function() { return ''; };
+            _getHorae = function() { return ''; };
+            _getBaiBaiSummary = function() { return ''; };
+        }
+        var out;
+        try {
+            out = oldBuildCommon(preparedTpl, extra);
+        } finally {
+            _user = userSource;
+            _getSTHistory = stHistorySource;
+            _getHorae = horaeSource;
+            _getBaiBaiSummary = baiBaiSource;
+        }
+        out = out
+            .split('__VNM_DISABLED_USER_NAME__').join('')
+            .split('__VNM_DISABLED_USER_PERSONA__').join('')
+            .replace(/\{\{用户信息\}\}/g, radioUserInfoBlock());
         out = out.split(summarySlot).join(radioChatSummaryBlock());
         var pl = v3.currentPlaylist() || {};
         var random = v3.state.mode === 'playlist' && pl.playMode === 'shuffle' ? (cfg.v3RandomModulePrompt || '') : '';

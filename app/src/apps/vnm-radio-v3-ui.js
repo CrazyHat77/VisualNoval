@@ -54,6 +54,54 @@
         '@media(max-width:720px){.vnr3-shade{align-items:flex-end;padding:0}.vnr3-modal{width:100%;max-height:88vh;border-radius:26px 26px 0 0;padding:18px 16px 24px}.vnr3-toolbar{align-items:stretch;flex-direction:column}.vnr3-search{max-width:none}.vnr3-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.vnr3-detail-head{grid-template-columns:88px minmax(0,1fr);gap:14px;padding:13px}.vnr3-detail-title{font-size:20px}.vnr3-detail-actions{grid-column:1/-1;margin-top:10px}.vnr3-detail-actions .vnr3-btn{flex:1 1 auto}.vnr3-inline-ops{grid-column:1/-1}.vnr3-song-row{grid-template-columns:minmax(0,1fr)}.vnr3-track{grid-template-columns:24px 38px minmax(0,1fr) auto auto}.vnr3-track>.vnr3-state{display:none}.vnr3-script-layer{inset:26px 358px 76px}.vnr3-script-window{border-radius:24px}.vnr3-library-dashboard{grid-template-columns:1fr}.vnr3-version-grid{grid-template-columns:1fr}}'
     ].join('');
 
+    var renderMadeWithoutDependencies = renderMade;
+    renderMade = function(box) {
+        renderMadeWithoutDependencies(box);
+        var fieldByLabel = {};
+        FIELDS.forEach(function(field) {
+            fieldByLabel[_stripHtml(field.label) || field.key] = field;
+        });
+        var rows = [].slice.call(box.querySelectorAll('.vnr2-set-r'));
+        function attachedNodes(row, field) {
+            var nodes = [row];
+            if (field && field.type === 'multiselect' && row.nextElementSibling &&
+                row.nextElementSibling.classList.contains('vnr2-wbl')) {
+                nodes.push(row.nextElementSibling);
+            }
+            return nodes;
+        }
+        function paintDependencies() {
+            rows.forEach(function(row) {
+                var label = row.querySelector('.vnr2-set-l');
+                var field = label && fieldByLabel[String(label.textContent || '').trim()];
+                if (!field || !field.dependsOn) return;
+                var enabled = bool(cfg[field.dependsOn], true);
+                attachedNodes(row, field).forEach(function(node) {
+                    node.style.opacity = enabled ? '' : '.34';
+                    node.style.pointerEvents = enabled ? '' : 'none';
+                    node.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+                    [].slice.call(node.querySelectorAll('input,select,textarea,button')).forEach(function(control) {
+                        control.disabled = !enabled;
+                    });
+                });
+            });
+        }
+        rows.forEach(function(row) {
+            var label = row.querySelector('.vnr2-set-l');
+            var field = label && fieldByLabel[String(label.textContent || '').trim()];
+            if (!field || (field.key !== 'v3IncludeUserInfo' && field.key !== 'v3IncludeStoryContext')) return;
+            var sw = row.querySelector('.vnr2-sw');
+            if (!sw || sw.__vnr3DependencyWrapped) return;
+            sw.__vnr3DependencyWrapped = true;
+            var originalClick = sw.onclick;
+            sw.onclick = function(event) {
+                if (originalClick) originalClick.call(sw, event);
+                paintDependencies();
+            };
+        });
+        paintDependencies();
+    };
+
     if (!eng.__v3RequestWrapped) {
         eng.__v3RequestWrapped = true;
         var vnr3OldRequest = eng.request;
