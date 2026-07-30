@@ -3,10 +3,10 @@
  * It deliberately uses ES5 syntax because the radio runs inside SillyTavern webviews.
  */
 (function vnr3InstallCore() {
-    if (eng.v3 && eng.v3.version >= 3.98) return;
+    if (eng.v3 && eng.v3.version >= 3.99) return;
 
     var v3 = eng.v3 = {
-        version: 3.98,
+        version: 3.99,
         audio: {},
         continuousRuntime: null,
         sleepTimer: null,
@@ -139,6 +139,7 @@
         st.activePlaylistId = st.activePlaylistId || 'now-playing';
         st.shortPersonas = st.shortPersonas || {};
         st.continuousVersions = Object.prototype.toString.call(st.continuousVersions) === '[object Array]' ? st.continuousVersions : [];
+        st.songScriptArchive = Object.prototype.toString.call(st.songScriptArchive) === '[object Array]' ? st.songScriptArchive : [];
         st.activeContinuousIds = st.activeContinuousIds || {};
         st.continuousVersions.forEach(function(version) {
             if (!version) return;
@@ -629,6 +630,20 @@
         });
         var favorite = _favByKey(key);
         if (favorite && seen.indexOf(favorite) < 0) refs.push(favorite);
+        var archived = null;
+        (v3.state.songScriptArchive || []).some(function(entry) {
+            if (entry && entry.key === key) {
+                archived = entry;
+                return true;
+            }
+            return false;
+        });
+        if (archived) refs.forEach(function(song) {
+            song.scriptVersions = mergeScriptVersionLists(song.scriptVersions, archived.scriptVersions || []);
+            if (!song.selectedScriptId) song.selectedScriptId = archived.selectedScriptId || '';
+            if (!song.selectedScriptIds || !song.selectedScriptIds.length) song.selectedScriptIds = clone(archived.selectedScriptIds || []);
+            if (!song.scriptSelectionMode) song.scriptSelectionMode = archived.scriptSelectionMode || 'single';
+        });
         return refs;
     }
 
@@ -735,6 +750,7 @@
                 if (version && version.id === id) {
                     if (next === null) next = !version.favorite;
                     version.favorite = next;
+                    version.favoritedAt = next ? Date.now() : 0;
                 }
             });
             song.scriptVersions = trimScriptVersions(song.scriptVersions, 5);
@@ -1706,6 +1722,16 @@
         for (var i = 0; i < arr.length; i++) if (arr[i].playlistId === playlistId && arr[i].id === activeId) return arr[i];
         for (var j = 0; j < arr.length; j++) if ((arr[j].playlistId || 'now-playing') === playlistId) return arr[j];
         return null;
+    };
+
+    v3.toggleContinuousFavorite = function(id) {
+        var version = v3.continuousById(id);
+        if (!version) return false;
+        version.favorite = !version.favorite;
+        version.favoritedAt = version.favorite ? Date.now() : 0;
+        v3.save();
+        v3.uiRefresh();
+        return version.favorite;
     };
 
     v3.deleteContinuousVersion = function(id) {
@@ -3239,25 +3265,200 @@
         (v3.state.continuousVersions || []).forEach(function(v) { if (v.id === versionId) version = v; });
         if (!version) { done && done('没有台本'); return; }
         var items = runtimeItems(version).filter(function(x) { return x.type === 'speech'; });
+        if (!items.length) { done && done('台本中没有可导出的朗读语音'); return; }
         var chunks = [], index = 0;
         function next() {
             if (index >= items.length) {
                 var blob = new TOP.Blob(chunks, { type: 'audio/mpeg' });
-                downloadBlob(blob, (version.title || '连续台本') + '.mp3');
-                downloadBlob(new TOP.Blob([JSON.stringify(version, null, 2)], { type: 'application/json' }), (version.title || '连续台本') + '.json');
-                done && done(null);
+                downloadBlob(blob, safeFilePart(version.title || '连续台本') + '-完整语音.mp3');
+                version.audioCacheComplete = true;
+                version.audioCacheCount = items.length;
+                version.audioCachedAt = Date.now();
+                version.audioCacheEnabled = true;
+                v3.save();
+                done && done(null, { count: items.length, size: blob.size });
                 return;
             }
             var item = items[index++];
             progress && progress(index, items.length);
-            _tts(item.ttsText, hostForName(item.host), function(url) {
-                TOP.fetch(url).then(function(r) { return r.arrayBuffer(); }).then(function(buf) {
+            getCachedAudioBlob(version, item).then(function(cached) {
+                if (cached) return cached;
+                return new TOP.Promise(function(resolve, reject) {
+                    _tts(item.ttsText, hostForName(item.host), function(url) {
+                        blobFromUrl(url).then(function(blob) {
+                            putCachedAudioBlob(version, item, blob).then(function() { resolve(blob); }).catch(reject);
+                        }).catch(reject);
+                    }, reject);
+                });
+            }).then(function(blobPart) {
+                return blobPart.arrayBuffer();
+            }).then(function(buf) {
                     chunks.push(buf);
                     next();
-                }).catch(function(e) { done && done(e.message || String(e)); });
-            }, function(e) { done && done(e || 'TTS失败'); });
+            }).catch(function(e) { done && done((e && e.message) || String(e)); });
         }
         next();
+    };
+
+    function scriptFileContinuous(version) {
+        var copy = clone(version || {});
+        delete copy.audioCacheKeys;
+        delete copy.audioCacheComplete;
+        delete copy.audioCacheCount;
+        delete copy.audioCachedAt;
+        delete copy.audioCacheEnabled;
+        delete copy.audioFiles;
+        delete copy.audioDirectoryFolder;
+        delete copy.audioAssets;
+        delete copy.segmentAudioMap;
+        return copy;
+    }
+
+    function mergeScriptVersionLists(current, incoming) {
+        var byId = {}, out = [];
+        (current || []).concat(incoming || []).forEach(function(version) {
+            if (!version || !String(version.say || '').trim()) return;
+            var id = String(version.id || uid('script'));
+            var copy = clone(version);
+            copy.id = id;
+            if (byId[id] !== undefined) {
+                var previous = out[byId[id]];
+                copy.favorite = !!(copy.favorite || previous.favorite);
+                out[byId[id]] = copy;
+            } else {
+                byId[id] = out.length;
+                out.push(copy);
+            }
+        });
+        out.sort(function(a, b) {
+            if (!!a.favorite !== !!b.favorite) return a.favorite ? -1 : 1;
+            return _num(b.t, 0) - _num(a.t, 0);
+        });
+        return out;
+    }
+
+    function collectSongScriptEntries() {
+        var entries = {}, order = [];
+        function add(song) {
+            var key = songKey(song);
+            var versions = song && song.scriptVersions || [];
+            if (!key || !versions.length) return;
+            if (!entries[key]) {
+                entries[key] = {
+                    key: key,
+                    title: song.title || song.name || song.query || '',
+                    artist: song.artist || song.author || '',
+                    scriptVersions: [],
+                    selectedScriptId: song.selectedScriptId || '',
+                    selectedScriptIds: clone(song.selectedScriptIds || []),
+                    scriptSelectionMode: song.scriptSelectionMode || 'single'
+                };
+                order.push(key);
+            }
+            entries[key].scriptVersions = mergeScriptVersionLists(entries[key].scriptVersions, versions);
+        }
+        v3.playlists().forEach(function(pl) { (pl.songs || []).forEach(add); });
+        ((eng.store && eng.store.favoriteSongs) || []).forEach(add);
+        (v3.state.songScriptArchive || []).forEach(function(entry) {
+            if (!entry || !entry.key) return;
+            if (!entries[entry.key]) {
+                entries[entry.key] = clone(entry);
+                entries[entry.key].scriptVersions = [];
+                order.push(entry.key);
+            }
+            entries[entry.key].scriptVersions = mergeScriptVersionLists(entries[entry.key].scriptVersions, entry.scriptVersions || []);
+        });
+        return order.map(function(key) { return entries[key]; });
+    }
+
+    v3.exportScripts = function() {
+        var payload = {
+            format: 'vnm-radio-scripts',
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            continuousVersions: (v3.state.continuousVersions || []).map(scriptFileContinuous),
+            songScripts: collectSongScriptEntries()
+        };
+        var stamp = new Date().toISOString().slice(0, 10);
+        downloadBlob(new TOP.Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }), 'vnm-radio-scripts-' + stamp + '.json');
+        return {
+            continuous: payload.continuousVersions.length,
+            songs: payload.songScripts.length
+        };
+    };
+
+    v3.importScripts = function(text) {
+        var obj = typeof text === 'string' ? JSON.parse(text) : text;
+        if (!obj || obj.format !== 'vnm-radio-scripts' || _num(obj.version, 0) < 1) {
+            throw new Error('不是有效的 VNM 电台台本文件');
+        }
+        var existingContinuous = {};
+        (v3.state.continuousVersions || []).forEach(function(version, index) {
+            if (version && version.id) existingContinuous[version.id] = index;
+        });
+        var continuousAdded = 0, continuousUpdated = 0;
+        (obj.continuousVersions || []).forEach(function(raw) {
+            if (!raw || Object.prototype.toString.call(raw.nodes) !== '[object Array]') return;
+            var version = scriptFileContinuous(raw);
+            version.id = String(version.id || uid('continuous'));
+            version.favorite = !!version.favorite;
+            if (!v3.playlist(version.playlistId || '')) version.playlistId = 'now-playing';
+            if (existingContinuous[version.id] !== undefined) {
+                var previous = v3.state.continuousVersions[existingContinuous[version.id]];
+                version.favorite = !!(version.favorite || previous.favorite);
+                v3.state.continuousVersions[existingContinuous[version.id]] = version;
+                continuousUpdated++;
+            } else {
+                existingContinuous[version.id] = v3.state.continuousVersions.length;
+                v3.state.continuousVersions.push(version);
+                continuousAdded++;
+            }
+        });
+
+        var archive = {}, archiveOrder = [];
+        (v3.state.songScriptArchive || []).forEach(function(entry) {
+            if (!entry || !entry.key) return;
+            archive[entry.key] = clone(entry);
+            archiveOrder.push(entry.key);
+        });
+        (obj.songScripts || []).forEach(function(entry) {
+            if (!entry || !entry.key) return;
+            if (!archive[entry.key]) {
+                archive[entry.key] = clone(entry);
+                archive[entry.key].scriptVersions = [];
+                archiveOrder.push(entry.key);
+            }
+            archive[entry.key].scriptVersions = mergeScriptVersionLists(archive[entry.key].scriptVersions, entry.scriptVersions || []);
+            archive[entry.key].selectedScriptId = entry.selectedScriptId || archive[entry.key].selectedScriptId || '';
+            archive[entry.key].selectedScriptIds = clone(entry.selectedScriptIds || archive[entry.key].selectedScriptIds || []);
+            archive[entry.key].scriptSelectionMode = entry.scriptSelectionMode || archive[entry.key].scriptSelectionMode || 'single';
+        });
+        v3.state.songScriptArchive = archiveOrder.map(function(key) { return archive[key]; });
+
+        var matched = {}, songMatched = 0;
+        function applyEntry(song) {
+            var key = songKey(song), entry = archive[key];
+            if (!entry) return;
+            song.scriptVersions = mergeScriptVersionLists(song.scriptVersions, entry.scriptVersions);
+            song.selectedScriptId = entry.selectedScriptId || song.selectedScriptId || '';
+            song.selectedScriptIds = clone(entry.selectedScriptIds || song.selectedScriptIds || []);
+            song.scriptSelectionMode = entry.scriptSelectionMode || song.scriptSelectionMode || 'single';
+            if (!matched[key]) {
+                matched[key] = true;
+                songMatched++;
+            }
+        }
+        v3.playlists().forEach(function(pl) { (pl.songs || []).forEach(applyEntry); });
+        ((eng.store && eng.store.favoriteSongs) || []).forEach(applyEntry);
+        v3.save();
+        try { eng.saveStore(); } catch (e) {}
+        v3.uiRefresh();
+        return {
+            continuousAdded: continuousAdded,
+            continuousUpdated: continuousUpdated,
+            songEntries: (obj.songScripts || []).length,
+            songMatched: songMatched
+        };
     };
 
     v3.exportData = function() {
@@ -3282,7 +3483,8 @@
     _speakItem = function(item, force, after) {
         if (v3.songScriptsSuppressed()) {
             if (item) item.spoken = false;
-            eng.duck(false);
+            var rt = v3.continuousRuntime;
+            eng.duck(!!(rt && rt.audio && !rt.paused && !rt.stopped));
             if (after) after(false);
             return;
         }
@@ -3301,12 +3503,22 @@
     var oldNextForContinuous = eng.next;
     eng.next = function() {
         var rt = v3.continuousRuntime;
-        var continuousVoice = rt && rt.audio && eng.voice === rt.audio ? rt.audio : null;
-        if (continuousVoice) eng.voice = null;
+        var continuousVoice = rt && rt.audio ? rt.audio : null;
+        var shouldKeepPlaying = !!(continuousVoice && !rt.paused && !rt.stopped);
+        if (continuousVoice && eng.voice === continuousVoice) eng.voice = null;
         try {
             return oldNextForContinuous.apply(eng, arguments);
         } finally {
-            if (continuousVoice && v3.continuousRuntime === rt && !rt.stopped) eng.voice = continuousVoice;
+            if (continuousVoice && v3.continuousRuntime === rt && !rt.stopped) {
+                eng.voice = continuousVoice;
+                if (shouldKeepPlaying && continuousVoice.paused && continuousVoice.play) {
+                    try {
+                        var resumed = continuousVoice.play();
+                        if (resumed && resumed.catch) resumed.catch(function() {});
+                    } catch (e) {}
+                }
+                eng.duck(!!(rt.audio && !rt.paused));
+            }
         }
     };
 

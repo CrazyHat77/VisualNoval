@@ -36,6 +36,14 @@
                     artist: '环境音',
                     url: 'about:blank',
                     cover: 'data:image/gif;base64,R0lGODlhAQABAIAAAAD/AP///ywAAAAAAQABAAACAUwAOw==',
+                    scriptVersions: [{
+                      id: 'song-script-favorite-test',
+                      t: 1,
+                      label: 'Favorite test',
+                      host: 'Host',
+                      say: 'Saved script',
+                      favorite: false
+                    }],
                     advanced: {
                       volumeMode: 'global',
                       volume: 55,
@@ -67,7 +75,7 @@
         };
         var ctx = {
           sbS: state,
-          settings: {},
+          settings: { autoRequest: false },
           save: function () {},
           toast: function () {},
           div: function (cls, html) { return el('div', cls, html); },
@@ -105,6 +113,57 @@
             if (!playlistImage || playlistImage.getAttribute('src') !==
                 'data:image/gif;base64,R0lGODlhAQABAIAAAAD/AP///ywAAAAAAQABAAACAUwAOw==') {
               throw new Error('playlist did not fall back to the newest song with an available cover');
+            }
+            var engine = window.__vnmRadioEngine;
+            var pauseCalls = 0;
+            var companionAudio = {
+              paused: false,
+              src: 'companion://playing',
+              pause: function () { pauseCalls++; this.paused = true; },
+              play: function () { this.paused = false; return Promise.resolve(); }
+            };
+            var companionRuntime = {
+              audio: companionAudio,
+              paused: false,
+              stopped: false
+            };
+            engine.v3.continuousRuntime = companionRuntime;
+            engine.voice = companionAudio;
+            engine.running = true;
+            engine.current = { id: 'current-test', song: { title: 'Current' } };
+            engine.queue = [];
+            engine.next();
+            if (pauseCalls !== 0 || engine.voice !== companionAudio ||
+                engine.v3.continuousRuntime !== companionRuntime) {
+              throw new Error('next song interrupted companion audio');
+            }
+            engine.v3.continuousRuntime = null;
+            engine.voice = null;
+            engine.running = false;
+
+            var imported = engine.v3.importScripts(JSON.stringify({
+              format: 'vnm-radio-scripts',
+              version: 1,
+              continuousVersions: [{
+                id: 'favorite-import-test',
+                playlistId: 'playlist-test',
+                title: 'Favorite import',
+                favorite: true,
+                nodes: [{ id: 'speech-import', type: 'speech', host: 'Host', ttsText: 'Hello' }]
+              }],
+              songScripts: []
+            }));
+            if (imported.continuousAdded !== 1 ||
+                engine.v3.deleteContinuousVersion('favorite-import-test') !== false) {
+              throw new Error('favorite imported script was not protected from cleanup');
+            }
+            var savedSong = engine.v3.playlist('playlist-test').songs[0];
+            var favoriteState = engine.v3.toggleSongScriptFavorite(
+              { song: savedSong, librarySongId: savedSong.id },
+              'song-script-favorite-test'
+            );
+            if (!favoriteState || !savedSong.scriptVersions[0].favorite) {
+              throw new Error('song script favorite was not persisted');
             }
             document.getElementById('result').textContent = 'PASS';
             window.__VNR_SMOKE_RESULT__ = { ok: true, version: app.version };

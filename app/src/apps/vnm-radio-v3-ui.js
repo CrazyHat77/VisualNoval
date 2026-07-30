@@ -48,10 +48,10 @@
         '.vnr3-status-error{opacity:.55;text-decoration:line-through}.vnr3-persona{margin:12px 0}.vnr3-persona textarea{min-height:110px}',
         '.vnr3-script-layer{position:absolute;inset:34px 330px 82px;z-index:40;pointer-events:auto;display:flex;align-items:stretch;justify-content:center}.vnr3-script-window{width:100%;min-width:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(255,255,255,.16);border-radius:30px;background:linear-gradient(145deg,rgba(77,84,101,.78),rgba(34,38,48,.82));box-shadow:0 28px 90px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.13);backdrop-filter:blur(38px) saturate(130%);-webkit-backdrop-filter:blur(38px) saturate(130%)}',
         '.vnr3-script-window-head{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,.08)}.vnr3-script-window-title{font-size:20px;font-weight:680}.vnr3-script-window-sub{font-size:11px;opacity:.5;margin-top:3px}.vnr3-script-close{width:38px;height:38px;flex:0 0 38px;border:1px solid rgba(255,255,255,.12);border-radius:50%;background:rgba(255,255,255,.07);color:inherit;font-size:23px;cursor:pointer}.vnr3-script-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;padding:18px 20px 24px;user-select:text}.vnr3-script-body .vnr3-cont-head{padding:0 0 12px}.vnr3-script-body .vnr3-speech-node{background:rgba(255,255,255,.045);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}',
-        '.vnr3-library-toolbar{display:grid;grid-template-columns:auto minmax(180px,320px);gap:12px;align-items:end;margin-bottom:18px;padding:10px;border:1px solid rgba(255,255,255,.09);border-radius:20px;background:rgba(255,255,255,.045)}.vnr3-library-toolbar .vnr3-field{margin:0}.vnr3-library-cache{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 14px;border:1px solid rgba(255,255,255,.09);border-radius:18px;background:rgba(255,255,255,.04);margin-bottom:14px}.vnr3-queue-script{display:grid;gap:9px;margin-bottom:12px}.vnr3-queue-script-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.vnr3-cache-badge{font-size:11px;opacity:.62}',
-        '.vnr3-library-dashboard{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(250px,.75fr);gap:14px;margin:14px 0 18px}.vnr3-library-pane{min-width:0;border:1px solid rgba(255,255,255,.1);border-radius:22px;background:rgba(14,17,24,.2);box-shadow:inset 0 1px 0 rgba(255,255,255,.06);padding:14px}.vnr3-library-pane-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:11px}.vnr3-library-pane-title{font-size:14px;font-weight:650}.vnr3-version-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:224px;overflow:auto;padding-right:3px}.vnr3-version-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;border:1px solid rgba(255,255,255,.08);border-radius:16px;background:rgba(255,255,255,.045);padding:11px;cursor:pointer}.vnr3-version-card:hover{background:rgba(255,255,255,.08)}.vnr3-version-card.on{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.19)}.vnr3-version-name{font-size:13px;font-weight:620;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vnr3-version-meta{font-size:10px;opacity:.5;margin-top:3px}.vnr3-queue-list{display:grid;gap:7px;max-height:174px;overflow:auto}.vnr3-queue-row{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:7px;align-items:center;border-radius:14px;background:rgba(255,255,255,.05);padding:8px 9px}.vnr3-queue-index{width:20px;height:20px;border-radius:7px;background:rgba(255,255,255,.09);display:grid;place-items:center;font-size:10px}.vnr3-mini-action{appearance:none;border:0;background:rgba(255,255,255,.07);color:inherit;width:27px;height:27px;border-radius:50%;cursor:pointer}.vnr3-mini-action:hover{background:rgba(255,255,255,.14)}.vnr3-editor-surface{border-top:1px solid rgba(255,255,255,.08);padding-top:17px}.vnr3-track-action{width:34px!important;height:34px!important;border-radius:50%!important;border:1px solid rgba(255,255,255,.13)!important;background:rgba(255,255,255,.055)!important;padding:0!important;display:grid!important;place-items:center!important;font-size:15px!important;line-height:1!important}.vnr3-track-action:hover{background:rgba(255,255,255,.12)!important}.vnr3-track-action svg{width:16px!important;height:16px!important;stroke-width:1.7}',
-        '.vnr3-song-scripts{margin-top:14px;border:1px solid rgba(255,255,255,.1);border-radius:20px;background:rgba(255,255,255,.035);overflow:hidden}.vnr3-song-scripts>summary{cursor:pointer;list-style:none;padding:14px 16px;font-size:14px;font-weight:650;display:flex;justify-content:space-between}.vnr3-song-scripts>summary::-webkit-details-marker{display:none}.vnr3-song-script-workspace{padding:0 14px 14px;border-top:1px solid rgba(255,255,255,.07)}.vnr3-song-script-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 0}.vnr3-song-script-list{display:grid;gap:7px;max-height:210px;overflow:auto}.vnr3-song-script-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:9px;border-radius:15px;background:rgba(255,255,255,.05);border:1px solid transparent}.vnr3-song-script-row.on{border-color:rgba(255,255,255,.2);background:rgba(255,255,255,.1)}.vnr3-song-script-editor{margin-top:10px;padding:12px;border-radius:16px;background:rgba(0,0,0,.14);border:1px solid rgba(255,255,255,.08)}',
-        '@media(max-width:720px){.vnr3-shade{align-items:flex-end;padding:0}.vnr3-modal{width:100%;max-height:88vh;border-radius:26px 26px 0 0;padding:18px 16px 24px}.vnr3-toolbar{align-items:stretch;flex-direction:column}.vnr3-search{max-width:none}.vnr3-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.vnr3-detail-head{grid-template-columns:88px minmax(0,1fr);gap:14px;padding:13px}.vnr3-detail-title{font-size:20px}.vnr3-detail-actions{grid-column:1/-1;margin-top:10px}.vnr3-detail-actions .vnr3-btn{flex:1 1 auto}.vnr3-inline-ops{grid-column:1/-1}.vnr3-song-row{grid-template-columns:minmax(0,1fr)}.vnr3-track{grid-template-columns:24px 38px minmax(0,1fr) auto auto}.vnr3-track>.vnr3-state{display:none}.vnr3-script-layer{inset:26px 358px 76px}.vnr3-script-window{border-radius:24px}.vnr3-library-dashboard{grid-template-columns:1fr}.vnr3-version-grid{grid-template-columns:1fr}}'
+        '.vnr3-library-toolbar{display:grid;grid-template-columns:auto minmax(180px,320px) auto;gap:12px;align-items:end;margin-bottom:18px;padding:10px;border:1px solid rgba(255,255,255,.09);border-radius:20px;background:rgba(255,255,255,.045)}.vnr3-library-toolbar .vnr3-field{margin:0}.vnr3-library-toolbar .vnr3-inline-ops{margin:0;align-self:center;justify-content:flex-end}.vnr3-library-cache{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 14px;border:1px solid rgba(255,255,255,.09);border-radius:18px;background:rgba(255,255,255,.04);margin-bottom:14px}.vnr3-queue-script{display:grid;gap:9px;margin-bottom:12px}.vnr3-queue-script-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.vnr3-cache-badge{font-size:11px;opacity:.62}',
+        '.vnr3-library-dashboard{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(250px,.75fr);gap:14px;margin:14px 0 18px}.vnr3-library-pane{min-width:0;border:1px solid rgba(255,255,255,.1);border-radius:22px;background:rgba(14,17,24,.2);box-shadow:inset 0 1px 0 rgba(255,255,255,.06);padding:14px}.vnr3-library-pane-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:11px}.vnr3-library-pane-title{font-size:14px;font-weight:650}.vnr3-version-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:224px;overflow:auto;padding-right:3px}.vnr3-version-card{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;border:1px solid rgba(255,255,255,.08);border-radius:16px;background:rgba(255,255,255,.045);padding:11px;cursor:pointer}.vnr3-version-card:hover{background:rgba(255,255,255,.08)}.vnr3-version-card.on{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.19)}.vnr3-version-name{font-size:13px;font-weight:620;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vnr3-version-meta{font-size:10px;opacity:.5;margin-top:3px}.vnr3-queue-list{display:grid;gap:7px;max-height:174px;overflow:auto}.vnr3-queue-row{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:7px;align-items:center;border-radius:14px;background:rgba(255,255,255,.05);padding:8px 9px}.vnr3-queue-index{width:20px;height:20px;border-radius:7px;background:rgba(255,255,255,.09);display:grid;place-items:center;font-size:10px}.vnr3-mini-action{appearance:none;border:0;background:rgba(255,255,255,.07);color:inherit;width:27px;height:27px;border-radius:50%;cursor:pointer}.vnr3-mini-action:hover{background:rgba(255,255,255,.14)}.vnr3-mini-action.on{background:rgba(255,255,255,.2);color:#fff}.vnr3-editor-surface{border-top:1px solid rgba(255,255,255,.08);padding-top:17px}.vnr3-track-action{width:34px!important;height:34px!important;border-radius:50%!important;border:1px solid rgba(255,255,255,.13)!important;background:rgba(255,255,255,.055)!important;padding:0!important;display:grid!important;place-items:center!important;font-size:15px!important;line-height:1!important}.vnr3-track-action:hover{background:rgba(255,255,255,.12)!important}.vnr3-track-action svg{width:16px!important;height:16px!important;stroke-width:1.7}',
+        '.vnr3-song-scripts{margin-top:14px;border:1px solid rgba(255,255,255,.1);border-radius:20px;background:rgba(255,255,255,.035);overflow:hidden}.vnr3-song-scripts>summary{cursor:pointer;list-style:none;padding:14px 16px;font-size:14px;font-weight:650;display:flex;justify-content:space-between}.vnr3-song-scripts>summary::-webkit-details-marker{display:none}.vnr3-song-script-workspace{padding:0 14px 14px;border-top:1px solid rgba(255,255,255,.07)}.vnr3-song-script-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 0}.vnr3-song-script-list{display:grid;gap:7px;max-height:210px;overflow:auto}.vnr3-song-script-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto auto auto;align-items:center;gap:8px;padding:9px;border-radius:15px;background:rgba(255,255,255,.05);border:1px solid transparent}.vnr3-song-script-row.on{border-color:rgba(255,255,255,.2);background:rgba(255,255,255,.1)}.vnr3-song-script-editor{margin-top:10px;padding:12px;border-radius:16px;background:rgba(0,0,0,.14);border:1px solid rgba(255,255,255,.08)}',
+        '@media(max-width:720px){.vnr3-shade{align-items:flex-end;padding:0}.vnr3-modal{width:100%;max-height:88vh;border-radius:26px 26px 0 0;padding:18px 16px 24px}.vnr3-toolbar{align-items:stretch;flex-direction:column}.vnr3-search{max-width:none}.vnr3-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.vnr3-detail-head{grid-template-columns:88px minmax(0,1fr);gap:14px;padding:13px}.vnr3-detail-title{font-size:20px}.vnr3-detail-actions{grid-column:1/-1;margin-top:10px}.vnr3-detail-actions .vnr3-btn{flex:1 1 auto}.vnr3-inline-ops{grid-column:1/-1}.vnr3-song-row{grid-template-columns:minmax(0,1fr)}.vnr3-track{grid-template-columns:24px 38px minmax(0,1fr) auto auto}.vnr3-track>.vnr3-state{display:none}.vnr3-script-layer{inset:26px 358px 76px}.vnr3-script-window{border-radius:24px}.vnr3-library-toolbar{grid-template-columns:1fr}.vnr3-library-toolbar .vnr3-inline-ops{justify-content:flex-start}.vnr3-library-dashboard{grid-template-columns:1fr}.vnr3-version-grid{grid-template-columns:1fr}}'
     ].join('');
 
     var renderMadeWithoutDependencies = renderMade;
@@ -687,8 +687,27 @@
                 var copy = V('');
                 copy.appendChild(V('vnr3-version-name', version.label || ('台本版本 ' + (index + 1))));
                 copy.appendChild(V('vnr3-version-meta',
+                    (version.favorite ? '已收藏 · ' : '') +
                     (version.host || '未指定主持人') + ' · ' + String(version.say || '').length + ' 字'));
                 row.appendChild(copy);
+                var favorite = E('button', 'vnr3-mini-action' + (version.favorite ? ' on' : ''), version.favorite ? '★' : '☆');
+                favorite.title = version.favorite ? '取消收藏；之后可被普通历史清理' : '收藏并永久保留';
+                favorite.onclick = function() {
+                    var persisted = false;
+                    if (song.id && (song.scriptVersions || []).some(function(saved) { return saved && saved.id === version.id; })) {
+                        var next = v3.toggleSongScriptFavorite({ song: song, librarySongId: song.id }, version.id);
+                        version.favorite = !!next;
+                        persisted = true;
+                    } else {
+                        version.favorite = !version.favorite;
+                        version.favoritedAt = version.favorite ? Date.now() : 0;
+                    }
+                    _toast(version.favorite ?
+                        (persisted ? '台本已收藏，将永久保留' : '已标记收藏，保存歌曲后将永久保留') :
+                        '已取消收藏');
+                    paintScriptWorkspace();
+                };
+                row.appendChild(favorite);
                 var edit = E('button', 'vnr3-mini-action', '✎');
                 edit.title = '展开编辑';
                 edit.onclick = function() {
@@ -697,8 +716,12 @@
                 };
                 row.appendChild(edit);
                 var del = E('button', 'vnr3-mini-action', '×');
-                del.title = '删除版本';
+                del.title = version.favorite ? '收藏台本受保护，请先取消收藏' : '删除版本';
                 del.onclick = function() {
+                    if (version.favorite) {
+                        _toast('已收藏的台本会永久保留，请先取消收藏');
+                        return;
+                    }
                     workingScripts.splice(index, 1);
                     selectedScriptIds = selectedScriptIds.filter(function(id) { return id !== version.id; });
                     if (selectedScriptId === version.id) {
@@ -1262,6 +1285,34 @@
             tabs.appendChild(button('长篇陪伴台本', function() { u.v3ScriptLibraryTab = 'continuous'; savePos(); paint(); }, tab === 'continuous' ? 'on' : ''));
             tabs.appendChild(button('当前歌曲台本', function() { u.v3ScriptLibraryTab = 'songs'; savePos(); paint(); }, tab === 'songs' ? 'on' : ''));
             toolbar.appendChild(tabs);
+            var scriptIo = V('vnr3-inline-ops');
+            scriptIo.appendChild(button('导出台本', function() {
+                var summary = v3.exportScripts();
+                _toast('已导出 ' + summary.continuous + ' 份长台本、' + summary.songs + ' 首歌曲台本');
+            }));
+            var importInput = E('input', '');
+            importInput.type = 'file';
+            importInput.accept = 'application/json,.json';
+            importInput.style.display = 'none';
+            importInput.onchange = function() {
+                var file = importInput.files && importInput.files[0];
+                if (!file) return;
+                var reader = new TOP.FileReader();
+                reader.onload = function() {
+                    try {
+                        var result = v3.importScripts(String(reader.result || ''));
+                        _toast('导入完成：新增 ' + result.continuousAdded + ' 份长台本，更新 ' +
+                            result.continuousUpdated + ' 份；歌曲台本匹配 ' + result.songMatched + ' 首');
+                        paint();
+                    } catch (e) {
+                        _toast('台本导入失败：' + ((e && e.message) || String(e)));
+                    }
+                    importInput.value = '';
+                };
+                reader.readAsText(file);
+            };
+            scriptIo.appendChild(button('导入台本', function() { importInput.click(); }));
+            scriptIo.appendChild(importInput);
             if (tab === 'continuous') {
                 var playlists = v3.playlists();
                 var selectedId = u.v3ScriptLibraryPlaylistId || v3.state.activePlaylistId || 'now-playing';
@@ -1279,6 +1330,7 @@
                     paint();
                 };
                 toolbar.appendChild(picker);
+                toolbar.appendChild(scriptIo);
                 body.appendChild(toolbar);
                 var continuousBox = V('');
                 continuousBox.__vnr3Refresh = paint;
@@ -1286,6 +1338,7 @@
                 renderContinuous(continuousBox, selectedPlaylist);
             } else {
                 toolbar.appendChild(V('vnr3-hint', '这里显示正在播放和后续队列中每首歌曲携带的台本。'));
+                toolbar.appendChild(scriptIo);
                 body.appendChild(toolbar);
                 renderQueueScripts(body, paint);
             }
@@ -1420,6 +1473,11 @@
         }));
         if (version) {
             ops.appendChild(button(playingThis ? '重新播放' : '整体播放', function() { v3.playContinuous(version.id); }));
+            ops.appendChild(button(version.favorite ? '★ 已收藏' : '☆ 收藏台本', function() {
+                var on = v3.toggleContinuousFavorite(version.id);
+                _toast(on ? '台本已收藏，将永久保留' : '已取消收藏，之后会按普通历史版本清理');
+                refreshContinuous();
+            }, version.favorite ? 'primary' : ''));
             if (playingThis) {
                 ops.appendChild(button(runtime.paused ? '继续播放台本' : '暂停台本', function() {
                     if (runtime.paused) v3.resumeContinuous();
@@ -1476,6 +1534,18 @@
                     refreshContinuous();
                 });
             }, 'primary'));
+            cacheBar.appendChild(button('导出完整语音（单个 MP3）', function() {
+                var p = modal('导出完整语音');
+                var status = V('vnr3-hint', '正在读取缓存；缺失的语音会自动补齐，最后只下载一个完整 MP3 文件…');
+                p.card.appendChild(status);
+                v3.exportContinuous(version.id, function(i, n) {
+                    status.textContent = '正在合并语音 ' + i + ' / ' + n;
+                }, function(err, result) {
+                    status.textContent = err ? ('导出失败：' + err) :
+                        ('导出完成：' + result.count + ' 段已合并为一个 MP3 文件');
+                    refreshContinuous();
+                });
+            }));
             if (version.audioCacheKeys && version.audioCacheKeys.length) {
                 cacheBar.appendChild(button('清除应用内缓存', function() {
                     v3.clearContinuousCache(version.id, function(err) {
@@ -1515,6 +1585,16 @@
                     (item.favorite ? '已收藏 · ' : '') +
                     (item.audioCacheComplete ? '语音已缓存' : '需要时请求 TTS')));
                 card.appendChild(copy);
+                var favorite = E('button', 'vnr3-mini-action' + (item.favorite ? ' on' : ''), item.favorite ? '★' : '☆');
+                favorite.type = 'button';
+                favorite.title = item.favorite ? '取消收藏；之后可按普通历史版本清理' : '收藏并永久保留';
+                favorite.onclick = function(ev) {
+                    ev.stopPropagation();
+                    var on = v3.toggleContinuousFavorite(item.id);
+                    _toast(on ? '台本已收藏，将永久保留' : '已取消收藏');
+                    refreshContinuous();
+                };
+                card.appendChild(favorite);
                 var add = E('button', 'vnr3-mini-action', queue.indexOf(item.id) >= 0 ? '✓' : '+');
                 add.type = 'button';
                 add.title = queue.indexOf(item.id) >= 0 ? '已加入播放列表' : '加入播放列表';
@@ -1725,7 +1805,10 @@
             refreshContinuous();
         }));
         save.appendChild(button('保存当前编辑', function() { version.edited = true; v3.save(); _toast('台本已保存'); }, 'primary'));
-        save.appendChild(button(version.favorite ? '取消收藏' : '收藏版本', function() { version.favorite = !version.favorite; v3.save(); refreshContinuous(); }));
+        save.appendChild(button(version.favorite ? '★ 已收藏' : '☆ 收藏台本', function() {
+            v3.toggleContinuousFavorite(version.id);
+            refreshContinuous();
+        }));
         editorSurface.appendChild(save);
     }
 
