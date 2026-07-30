@@ -18,7 +18,8 @@
         return response.json();
       }).then(function (app) {
         localStorage.setItem('vnm-radio-state-v2', JSON.stringify({
-          ui2: { mode: 'studio', view: 'playlists', sidesOpen: false },
+          // Simulate an older saved state whose side-panel flag was not a boolean.
+          ui2: { mode: 'bar', view: 'playlists', sidesOpen: null },
           v3Radio: {
             activePlaylistId: 'playlist-test',
             mode: 'recommend',
@@ -77,8 +78,26 @@
         var root = page(ctx);
         if (!root || root.nodeType !== 1) throw new Error('pageCode did not return a DOM element');
         document.body.appendChild(root);
-        document.getElementById('result').textContent = 'PASS';
-        window.__VNR_SMOKE_RESULT__ = { ok: true, version: app.version };
+        var openStudio = document.querySelector('[title="打开第三形态"]');
+        if (!openStudio) throw new Error('studio open button is missing');
+        openStudio.click();
+        setTimeout(function () {
+          try {
+            var cards = Array.prototype.slice.call(document.querySelectorAll('.vnr2-card'));
+            if (cards.length !== 2) throw new Error('expected two studio side cards');
+            cards.forEach(function (card) {
+              if (card.classList.contains('hidden') || getComputedStyle(card).opacity === '0') {
+                throw new Error('studio side card did not open on first entry');
+              }
+            });
+            document.getElementById('result').textContent = 'PASS';
+            window.__VNR_SMOKE_RESULT__ = { ok: true, version: app.version };
+          } catch (error) {
+            document.getElementById('result').textContent = 'FAIL: ' + (error && error.stack || error);
+            window.__VNR_SMOKE_RESULT__ = { ok: false, error: String(error && error.stack || error) };
+            console.error(error);
+          }
+        }, 450);
       }).catch(function (error) {
         document.getElementById('result').textContent = 'FAIL: ' + (error && error.stack || error);
         window.__VNR_SMOKE_RESULT__ = { ok: false, error: String(error && error.stack || error) };

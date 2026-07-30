@@ -1852,6 +1852,28 @@
         }
     }
 
+    /*
+     * Old saved UI states may contain null/0 instead of a strict boolean.
+     * Open both side cards once whenever the shell enters studio mode, while
+     * still allowing the user to close them manually after the studio is open.
+     */
+    var vnr3DrawShellWithSideSync = drawShell;
+    var vnr3LastShellMode = null;
+    drawShell = function() {
+        var enteringStudio = u.mode === 'studio' && vnr3LastShellMode !== 'studio';
+        if (enteringStudio) u.sidesOpen = true;
+        var result = vnr3DrawShellWithSideSync.apply(this, arguments);
+        vnr3LastShellMode = u.mode;
+        if (enteringStudio) {
+            TOP.requestAnimationFrame(function() {
+                if (u.mode !== 'studio' || !u.sidesOpen) return;
+                leftCard.classList.remove('hidden');
+                rightCard.classList.remove('hidden');
+            });
+        }
+        return result;
+    };
+
     try {
         TOP.addEventListener('vnm-radio-v3-refresh', function() {
             try {
