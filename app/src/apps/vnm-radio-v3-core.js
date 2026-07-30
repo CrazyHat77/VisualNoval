@@ -3,10 +3,10 @@
  * It deliberately uses ES5 syntax because the radio runs inside SillyTavern webviews.
  */
 (function vnr3InstallCore() {
-    if (eng.v3 && eng.v3.version >= 3.96) return;
+    if (eng.v3 && eng.v3.version >= 3.97) return;
 
     var v3 = eng.v3 = {
-        version: 3.96,
+        version: 3.97,
         audio: {},
         continuousRuntime: null,
         sleepTimer: null,
@@ -483,7 +483,7 @@
         });
     };
 
-    function queueItemFromSong(song) {
+    function queueItemFromSong(song, playlistId) {
         song = cleanSong(song);
         var it = _itemFromSong(song, 'manual');
         it.song.cover = song.cover || '';
@@ -514,6 +514,7 @@
             it.scriptFresh = false;
         }
         it.librarySongId = song.id;
+        it.sourcePlaylistId = playlistId || '';
         return it;
     }
 
@@ -528,7 +529,7 @@
                 songs[j] = tmp;
             }
         }
-        var items = songs.map(queueItemFromSong);
+        var items = songs.map(function(song) { return queueItemFromSong(song, pl.id); });
         if (append) eng.queue = (eng.queue || []).concat(items);
         else {
             eng.queue = items;
@@ -537,6 +538,7 @@
         eng.saveQueue();
         v3.state.mode = 'playlist';
         v3.state.activePlaylistId = id;
+        if (!append) v3.state.playbackPlaylistId = id;
         v3.save();
         if (!eng.running) {
             eng.running = true;
@@ -546,6 +548,25 @@
         if (pl.autoScripts) TOP.setTimeout(function() { v3.requestCurrentMode(false); }, 60);
         v3.uiRefresh();
         return true;
+    };
+
+    v3.playlistForQueueItem = function(item) {
+        item = item || {};
+        var direct = v3.playlist(item.sourcePlaylistId || '');
+        if (direct && direct.id !== 'now-playing' && (direct.songs || []).length) return direct;
+        var remembered = v3.playlist(v3.state.playbackPlaylistId || '');
+        if (remembered && remembered.id !== 'now-playing' && (remembered.songs || []).length) return remembered;
+        var key = songKey(item.song || {});
+        var found = null;
+        v3.playlists().some(function(playlist) {
+            if (!playlist || playlist.id === 'now-playing' || !(playlist.songs || []).length) return false;
+            var matched = (playlist.songs || []).some(function(song) {
+                return item.librarySongId && song.id === item.librarySongId || key && songKey(song) === key;
+            });
+            if (matched) found = playlist;
+            return matched;
+        });
+        return found;
     };
 
     v3.setMode = function(mode) {
@@ -565,6 +586,9 @@
         v3.state.mode = mode;
         v3.save();
         v3.uiRefresh();
+        if (mode === 'companion') TOP.setTimeout(function() {
+            if (v3.ensureCompanionAutoStart) v3.ensureCompanionAutoStart(true);
+        }, 80);
     };
 
     v3.songScriptsSuppressed = function() {
@@ -1913,6 +1937,26 @@
     function companionAutoRequestEnabled() {
         return !v3.state.localScriptMode && bool(cfg.v3CompanionAutoRequest, true) && v3.state.mode === 'companion';
     }
+
+    v3.ensureCompanionAutoStart = function(force) {
+        if (!companionAutoRequestEnabled() || eng.busy) return false;
+        var rt = v3.continuousRuntime;
+        if (rt && !rt.stopped && !rt.finished) return false;
+        var playlist = v3.currentPlaylist() || v3.playlist('now-playing');
+        /* 历史库里有旧版本不代表当前已有台本在播放。只要陪伴模式
+           没有活动运行时，就生成一份新的；旧版本仅供用户手动播放。 */
+        var now = Date.now();
+        if (!force && now - _num(v3.companionAutoStartAt, 0) < 30000) return false;
+        v3.companionAutoStartAt = now;
+        return !!v3.requestCompanion(false, {
+            playlistId: playlist && playlist.id || 'now-playing'
+        });
+    };
+
+    try { if (eng.__v3CompanionAutoWatch) TOP.clearInterval(eng.__v3CompanionAutoWatch); } catch (eWatch) {}
+    eng.__v3CompanionAutoWatch = v3.companionAutoWatch = TOP.setInterval(function() {
+        try { v3.ensureCompanionAutoStart(false); } catch (e) {}
+    }, 1500);
 
     function nextCompanionTriggerIndex(items) {
         items = items || [];

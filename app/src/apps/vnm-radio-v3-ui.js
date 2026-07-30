@@ -37,7 +37,7 @@
         '.vnr3-song-list,.vnr3-node-list{display:grid;gap:7px}.vnr3-song-row,.vnr3-node,.vnr3-persona{border:1px solid rgba(255,255,255,.08);border-radius:17px;background:rgba(255,255,255,.035);padding:12px}',
         '.vnr3-song-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px}.vnr3-song-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         '.vnr3-track-list{display:grid;gap:7px;align-content:start;overflow:visible;margin-top:10px}.vnr3-script-body::-webkit-scrollbar{width:5px}.vnr3-script-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);border-radius:999px}.vnr3-track{display:grid;grid-template-columns:26px 42px minmax(0,1fr) auto auto auto;align-items:center;gap:10px;border-radius:16px;padding:8px;background:rgba(255,255,255,.035)}',
-        '.vnr3-check{width:20px;height:20px;border:1px solid rgba(255,255,255,.2);border-radius:7px;background:transparent}.vnr3-check.on:after{content:"✓";color:#eee}.vnr3-track-pic{width:42px;height:42px;border-radius:11px;overflow:hidden;display:grid;place-items:center;background:rgba(255,255,255,.08)}.vnr3-track-pic img{width:100%;height:100%;object-fit:cover}.vnr3-track-title,.vnr3-track-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vnr3-track-sub{opacity:.55;font-size:11px}',
+        '.vnr3-check{position:relative;width:22px;height:22px;padding:0;border:1px solid rgba(255,255,255,.28);border-radius:50%;background:rgba(255,255,255,.045);box-shadow:inset 0 1px 0 rgba(255,255,255,.09);transition:background .14s,border-color .14s,box-shadow .14s;cursor:pointer}.vnr3-check:hover{border-color:rgba(255,255,255,.48);background:rgba(255,255,255,.09)}.vnr3-check.on{border-color:#0a84ff;background:#0a84ff;box-shadow:0 0 0 3px rgba(10,132,255,.16),inset 0 1px 0 rgba(255,255,255,.3)}.vnr3-check.on:after{content:"";position:absolute;left:7px;top:3px;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}.vnr3-track-pic{width:42px;height:42px;border-radius:11px;overflow:hidden;display:grid;place-items:center;background:rgba(255,255,255,.08)}.vnr3-track-pic img{width:100%;height:100%;object-fit:cover}.vnr3-track-title,.vnr3-track-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vnr3-track-sub{opacity:.55;font-size:11px}',
         '.vnr3-speech-node,.vnr3-pause-node{border:1px solid rgba(255,255,255,.08);border-radius:17px;background:rgba(255,255,255,.035);padding:12px}.vnr3-pause-node{display:flex;align-items:center;justify-content:center;gap:10px;border-style:dashed}.vnr3-pause-input{width:70px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(0,0,0,.15);color:inherit;padding:8px}.vnr3-node-ops{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}',
         '.vnr3-node-head,.vnr3-persona-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}',
         '.vnr3-segment{display:flex;gap:6px;flex-wrap:wrap}.vnr3-segment .vnr3-btn.on{background:rgba(255,255,255,.18)}',
@@ -67,9 +67,23 @@
         var vnr3OldNext = eng.next;
         eng.next = function() {
             if (v3.sleepStopPending) return;
+            if (eng.running && v3.state.mode === 'playlist' && !(eng.queue || []).length) {
+                var replayPlaylist = v3.playlistForQueueItem(eng.current);
+                if (replayPlaylist && (replayPlaylist.songs || []).length) {
+                    v3.loadPlaylist(replayPlaylist.id, false);
+                    return vnr3OldNext.apply(eng, arguments);
+                }
+                /* 找不到来源歌单时宁可结束，也不回退到旧的最近历史补队列。 */
+                eng.current = null;
+                eng.running = false;
+                eng.paused = true;
+                eng.saveQueue();
+                v3.uiRefresh();
+                return;
+            }
             var pl = v3.currentPlaylist();
             var sleep = v3.state.sleep;
-            if (eng.running && !(eng.queue || []).length && pl && (!pl.system || pl.favoriteSystem)) {
+            if (eng.running && v3.state.mode !== 'playlist' && !(eng.queue || []).length && pl && (!pl.system || pl.favoriteSystem)) {
                 var shouldLoop = pl.playMode === 'repeat' || pl.playMode === 'repeat-one' ||
                     (sleep && sleep.active && sleep.loopExisting && !sleep.expired);
                 if (pl.playMode === 'repeat-one' && eng.current && shouldLoop) {
