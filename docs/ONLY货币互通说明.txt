@@ -1,0 +1,38 @@
+════════════════════════════════════════════════
+ ONLY 货币跨 App 互通规范（vnm-quests 中介所定义）
+ 给所有 VNM App 开发者 / AI 的接入说明
+════════════════════════════════════════════════
+
+一、存储位置（唯一真相源）
+  顶层页面 localStorage，key 固定为：
+      vnm-currency-only
+  值为纯数字字符串（可含两位小数），如 "350" 或 "12.5"。
+  不要用 JSON 包裹，不要换 key，不要各 App 自存余额副本。
+
+二、标准读写函数（任何 App 直接复制使用）
+  var TOP = window.parent;
+  function getOnly(){
+    var v = parseFloat(TOP.localStorage.getItem('vnm-currency-only'));
+    return isNaN(v) ? 0 : v;
+  }
+  function setOnly(n){
+    try{ TOP.localStorage.setItem('vnm-currency-only',
+         String(Math.round(n*100)/100)); }catch(e){}
+  }
+  function addOnly(delta){ setOnly(getOnly() + delta); }   // 收入用正数，支出用负数
+
+三、规则
+  1. 所有涉及金钱的 App（商店、银行、赌场、工资、转账…）的加减
+     都必须通过 addOnly() 操作这同一个数字。
+  2. 扣款前先检查余额：if(getOnly() < price){ ctx.toast('only 不足'); return; }
+  3. 不要缓存余额到自己的状态里再回写，每次显示/结算时实时 getOnly()，
+     避免两个 App 同时改钱互相覆盖。
+  4. key 不存在视为 0；首次初始化余额只允许"key 为 null 时"写入，
+     防止覆盖玩家已有存款（参考中介所的 startBalance 实现）。
+  5. 数额保留两位小数；禁止写入负数余额（透支需求请自行做借贷记录，
+     不要把主余额写成负的，除非你的世界观确实允许）。
+
+四、当前已接入的 App
+  - vnm-quests 中介所：任务审核通过后 addOnly(基础工资+额外报酬)，
+    未通过 addOnly(基础工资)；初始余额由设置项 startBalance 写入（仅首次）。
+════════════════════════════════════════════════

@@ -245,6 +245,9 @@ function openViewer(mode){
     +'<div class="vnm-controls"><div id="vnm-send-status" style="display:none;flex:1;align-items:center;gap:8px;padding:8px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:14px;font-size:13px;color:rgba(255,255,255,.55);letter-spacing:.3px;"><span class="vnm-spinner"></span><span id="vnm-send-status-text">已发送，等待 AI 回复…</span></div><input class="vnm-input" id="vnm-input" type="text" placeholder="输入文字按 Enter 发送给酒馆…" /><span class="vnm-tip">Enter=发送  Esc=退出</span></div>'
     +'</div>';
   _doc.body.appendChild(overlay);
+  /* 阅读器打开时唤起各启用插件的 injectCode(壁纸等 App 借此启动自己的轮询,
+     保证新楼层/刷新后无需手动打开插件页即可正常加载) */
+  try{ if(TOP.__vnmInjectFn && typeof TOP.__vnmInjectFn==='function') TOP.__vnmInjectFn(); }catch(e){}
   // Web mode: lock body scroll (iOS position:fixed trick) + height sync
   if(mode==='web'){
     try{
@@ -1097,10 +1100,15 @@ function openViewer(mode){
     textEl.textContent = s.text;
     try{ _vtOnRender(s); _vtPrefetchNext(state.idx); }catch(e){}
     const validCount = state.myImgs.filter(function(el){ return !!imgUrl(el); }).length;
-    if (validCount > 0){
-      progEl.innerHTML = (state.idx+1)+' / '+state.sentences.length+'&nbsp;&nbsp;&nbsp;['+validCount+'/'+state.myImgs.length+' 图]';
+    var _expectImgs = (state.imageCountOverride!==null ? state.imageCountOverride : state.imageCount) || 0;
+    if (_expectImgs > 0){
+      if (validCount > 0){
+        progEl.innerHTML = (state.idx+1)+' / '+state.sentences.length+'&nbsp;&nbsp;&nbsp;['+validCount+'/'+state.myImgs.length+' 图]';
+      } else {
+        progEl.innerHTML = (state.idx+1)+' / '+state.sentences.length+'&nbsp;&nbsp;&nbsp;<span class="vnm-spinner"></span>等待图片生成…';
+      }
     } else {
-      progEl.innerHTML = (state.idx+1)+' / '+state.sentences.length+'&nbsp;&nbsp;&nbsp;<span class="vnm-spinner"></span>等待图片生成…';
+      progEl.innerHTML = (state.idx+1)+' / '+state.sentences.length;
     }
     renderBg(urlForSentence(s));
   }
@@ -1384,6 +1392,31 @@ function openViewer(mode){
     return parts.join('\n');
   }
   try{ TOP.__vnmInjectFn=_buildInject; }catch(e){}
+  /* 头像压缩: 上传时缩到 256px JPEG, 避免 base64 撑爆 localStorage 配额(保存失败的常见原因) */
+  function _v8ShrinkAvatar(file, cb){
+    var r=new TOP.FileReader();
+    r.onerror=function(){ cb(''); };
+    r.onload=function(e){
+      try{
+        var img=new TOP.Image();
+        img.onload=function(){
+          try{
+            var MAX=256;
+            var w=img.naturalWidth||img.width||0, h=img.naturalHeight||img.height||0;
+            if(!w||!h){ cb(e.target.result); return; }
+            var sc=Math.min(1, MAX/Math.max(w,h));
+            var cw=Math.max(1,Math.round(w*sc)), ch=Math.max(1,Math.round(h*sc));
+            var cv=TOPDOC.createElement('canvas'); cv.width=cw; cv.height=ch;
+            cv.getContext('2d').drawImage(img,0,0,cw,ch);
+            cb(cv.toDataURL('image/jpeg',0.85));
+          }catch(e2){ cb(e.target.result); }
+        };
+        img.onerror=function(){ cb(e.target.result); };
+        img.src=e.target.result;
+      }catch(e2){ cb(e.target&&e.target.result||''); }
+    };
+    r.readAsDataURL(file);
+  }
   (function setupStatusBar(){
     try {
 
@@ -1422,7 +1455,15 @@ function openViewer(mode){
 
     var SB_KEY='vnm-statusbar-v2';
     function _L(){try{return JSON.parse(TOP.localStorage.getItem(SB_KEY)||'{}');}catch(e){return{};}}
-    function _W(){try{TOP.localStorage.setItem(SB_KEY,JSON.stringify(_sbS));}catch(e){}}
+    var _wErrAt=0;
+    function _W(){
+      try{ TOP.localStorage.setItem(SB_KEY,JSON.stringify(_sbS)); }
+      catch(e){
+        try{ console.error('[VNM] 保存失败(浏览器存储可能已满):', e); }catch(_e1){}
+        var _now=Date.now();
+        if(_now-_wErrAt>5000){ _wErrAt=_now; try{ _toast('保存失败: 浏览器存储可能已满(大头像会占用很多空间)', 4000); }catch(_e2){} }
+      }
+    }
     function _applyGlass(el){
       var sh=el||TOPDOC.getElementById('vnm-v8');if(!sh)return;
       var _w=TOPDOC.getElementById('vnm-statusbar');var _tg=[sh];if(_w&&_w!==sh)_tg.push(_w);
@@ -2550,12 +2591,11 @@ function openViewer(mode){
         var avFile=TOPDOC.createElement('input');avFile.type='file';avFile.accept='image/*';avFile.style.display='none';
         avFile.addEventListener('change',function(){
           var f=this.files&&this.files[0];if(!f)return;
-          var r=new TOP.FileReader();
-          r.onload=function(e){
-            if(isUser){if(!_sbS.user)_sbS.user={};_sbS.user.avatar=e.target.result;}
-            else{char.avatar=e.target.result;}
+          _v8ShrinkAvatar(f,function(dataUrl){
+            if(isUser){if(!_sbS.user)_sbS.user={};_sbS.user.avatar=dataUrl;}
+            else{char.avatar=dataUrl;}
             _W();_go('contact-detail',_nav.data);
-          };r.readAsDataURL(f);
+          });
         });
         bigAv.addEventListener('click',function(e){e.stopPropagation();avFile.click();});
         var avHint=_div('');avHint.style.cssText='font-size:11px;color:rgba(255,255,255,.28);';avHint.textContent='点击头像更换图片';
@@ -4185,9 +4225,7 @@ function openViewer(mode){
         var fi=TOPDOC.createElement('input');fi.type='file';fi.accept='image/*';fi.style.display='none';
         fi.addEventListener('change',function(){
           var f=this.files&&this.files[0];if(!f)return;
-          var r=new TOP.FileReader();
-          r.onload=function(e){setAv(e.target.result);_W();_upd();};
-          r.readAsDataURL(f);
+          _v8ShrinkAvatar(f,function(dataUrl){setAv(dataUrl);_W();_upd();});
         });
         img.addEventListener('mouseenter',function(){this.style.borderColor='rgba(255,255,255,.4)';});
         img.addEventListener('mouseleave',function(){this.style.borderColor='rgba(255,255,255,.15)';});
