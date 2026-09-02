@@ -1,0 +1,287 @@
+════════════════════════════════════════════════════════════════════
+ VNM 功能系统 App 开发指南（给 AI 的完整 Prompt）
+ 适用于：vn_visual_novel_liquidglass.json 主文件内置的功能系统 v8
+ 参考实现：vnm-phone-call.json（电话 App，本文大量经验来自它）
+════════════════════════════════════════════════════════════════════
+
+你的任务是为一个 SillyTavern（酒馆）视觉小说插件的"功能系统"编写可导入
+的 App。功能系统是一个 iOS 风格的悬浮面板，主屏上有图标，点开"应用商
+城"可以导入 .json 文件安装 App。你产出的最终交付物就是一个 JSON 文件。
+
+──────────────────────────────────────────────
+一、App JSON 文件结构（必须严格遵守）
+──────────────────────────────────────────────
+导入时主文件校验 vnmPlugin、id、name 三个字段，缺一不可：
+
+{
+  "vnmPlugin": true,                ← 必须，标识这是 VNM 插件
+  "id": "vnm-my-app",               ← 必须，唯一 ID；重复导入同 id 会覆盖更新（且保留用户已设置的 settingsValues）
+  "name": "我的应用",                ← 必须，主屏图标下显示的名字
+  "version": "1.0.0",
+  "description": "一句话简介",
+  "icon": "<path d=\"...\"/>",       ← SVG 内部元素（24x24 viewBox，描边风格，不要带 <svg> 外壳）
+  "settingsTitle": "我的应用设置",    ← 设置页标题
+  "settingsFields": [ ... ],         ← 设置项声明（见第二节，核心！）
+  "pageCode": "(function(ctx){ ... return rootElement; })",   ← App 页面代码（字符串形式的 JS 函数）
+  "injectEnabled": false,            ← 是否启用注入（见第七节）
+  "injectCode": "(function(ctx){ return ''; })"               ← 注入函数（字符串）
+}
+
+pageCode / injectCode 都是"字符串化的 JS 函数"，主文件用
+new Function('ctx','return('+code+')(ctx);') 执行。所以：
+- 必须是一个被括号包裹的函数表达式 (function(ctx){...})
+- pageCode 必须 return 一个 DOM 元素，它会被放进 App 页面（导航栏由主文件
+  自动添加，不要自己画返回按钮，底部 iOS 条单击=返回、双击=回主屏）。
+- 写进 JSON 时注意转义双引号和换行。
+
+──────────────────────────────────────────────
+二、设置项：禁止在 App 内自建设置界面！
+──────────────────────────────────────────────
+【铁律】App 的一切可配置项，全部通过 settingsFields 声明，由主文件的
+"设置"页统一渲染（设置 → 该 App 名称）。这是和主文件设置桥接的唯一正确
+方式。禁止在 pageCode 里自己画设置页、自己存设置；用户所有配置都应当
+出现在主文件设置里，与字体、API、液态玻璃等设置并列。
+
+settingsFields 每项格式：
+{
+  "group": "分组名",        ← 同组字段渲染在同一张卡片下，可折叠
+  "key": "myKey",           ← 读取时用 ctx.settings.myKey
+  "type": "text | password | number | select | toggle | textarea | textarea-presets",
+  "label": "显示名称",       ← 可以嵌 HTML（电话 App 在 label 里嵌了"预览完整提示词"按钮）
+  "default": 默认值,
+  "placeholder": "...",      ← text/textarea 可选
+  "rows": 4,                 ← textarea 可选
+  "options": [{"v":"值","l":"显示"}],          ← select 必填
+  "variables": ["{{角色名称}}","{{用户名称}}"]  ← textarea-presets 专用：渲染成可点击插入的变量按钮
+}
+
+读写方式：
+- 读：pageCode/injectCode 里 var cfg = ctx.settings;  → cfg.myKey
+- 值由主文件自动持久化（用户在设置页修改即时写入 localStorage），App 内
+  如果程序化修改了 cfg 上的值，调用 ctx.save() 保存。
+- 导入/更新 App 时，主文件自动把 default 填进尚未设置的 settingsValues。
+
+──────────────────────────────────────────────
+三、ctx 对象：App 与主文件的全部桥梁
+──────────────────────────────────────────────
+pageCode 和 injectCode 收到的 ctx 包含：
+
+ctx.sbS            主文件完整状态对象（最重要！见第四节）
+ctx.settings       本 App 的设置值（settingsFields 对应）
+ctx.save()         持久化 sbS 与设置（写 localStorage）
+ctx.toast(msg)     主文件的提示气泡
+ctx.div(cls,html)  / ctx.el(tag,cls,html)   创建带主文件样式类的元素
+ctx.svg(path,size) 生成图标
+ctx.fetch / ctx.Audio / ctx.atob            顶层 window 的能力（在 iframe 里必须用这些，不要用裸 fetch）
+ctx.SpeechRecognition                       语音识别构造器
+ctx.getChars()         全部通讯录角色
+ctx.getActiveChars()   当前激活角色
+ctx.getUser()          {name, persona}
+ctx.getWbActive()      已激活的世界书条目
+ctx.renderTemplate(tpl, char)  替换 {{角色名称}}{{角色设定}}{{用户名称}}{{用户设定}}{{当前时间}}
+仅 pageCode 额外有：ctx.back() 返回主屏、ctx.go(page,data) 路由跳转
+
+建议在 pageCode 开头写：
+var TOP=window.parent, TOPDOC=TOP.document, sbS=ctx.sbS, cfg=ctx.settings, _W=ctx.save;
+（功能系统运行在酒馆消息 iframe 中，TOP 才是真正的顶层页面；所有
+localStorage、fetch、FileReader、setTimeout、DOM 弹窗都应使用 TOP.xxx。）
+
+可复用的 UI 样式类（直接给元素加 className 即可获得液态玻璃外观，
+不要自己写玻璃样式，这样才会跟随主文件液态玻璃设置联动）：
+v8card 卡片 / v8row 列表行(.tap 可点) / v8ic 行图标 / v8rt 行标题 /
+v8rs 行副标题 / v8sec 分组标题 / v8btn 按钮(.del 危险) / v8field 表单行 /
+v8flb 表单标签 / v8inp 输入框 / v8ta 多行输入 / v8fi 大输入框
+
+──────────────────────────────────────────────
+四、ctx.sbS 里能拉到的数据（主文件设置的共享数据）
+──────────────────────────────────────────────
+通讯录 / 角色：
+  sbS.characters        [{id,name,persona,avatar,wbIds,voiceId,...}]
+  sbS.activeCharIds     激活角色 id 数组
+用户：
+  sbS.user              {name, persona, avatar}
+主 API（设置 → API 设置）：
+  sbS.apiUrl  sbS.apiKey  sbS.model
+世界书（设置 → 世界书）：
+  sbS.wbEntries         [{id,name,content,group,...}]
+  sbS.wbActive          激活条目 id 数组
+TTS（设置 → TTS，MiniMax）：
+  sbS.ttsEnabled  sbS.ttsApiKey  sbS.ttsGroupId
+  sbS.ttsApiHost（默认 https://api.minimax.chat）  sbS.ttsModel（speech-02-hd）
+其他：
+  sbS.presets / sbS.activePresetId   提示词预设
+  sbS.history            主面板各角色生成历史 {charId:[{raw,...}]}
+  sbS.vnmApps            全部已装 App
+
+电话 App 的取数范式（照抄即可）：
+  角色名称  char.name        角色设定  char.persona
+  用户名字  (sbS.user&&sbS.user.name) || stCtx.name1 || '用户'
+  用户设定  (sbS.user&&sbS.user.persona) || ''
+  世界书    按角色绑定的 wbIds 过滤：
+    function _getWbText(char){
+      var ids=char.wbIds||[]; if(!ids.length)return'';
+      return (sbS.wbEntries||[]).filter(function(e){return ids.indexOf(e.id)>=0&&e.content;})
+        .map(function(e){return '《'+e.name+'》\n'+e.content;}).join('\n\n');
+    }
+
+──────────────────────────────────────────────
+五、拉取酒馆数据：聊天历史 / Horae 总结
+──────────────────────────────────────────────
+酒馆上下文：
+  var stCtx = TOP.SillyTavern && TOP.SillyTavern.getContext && TOP.SillyTavern.getContext();
+  stCtx.chat   全部消息；stCtx.name1 用户名；stCtx.name2 当前角色名
+
+酒馆历史（注入条数由 settingsFields 的 number 字段控制，如电话 App 的
+stHistN，0=不注入。条数可调的逻辑 = 设置项决定 slice 多少条）：
+  function _getSTHistory(n){
+    if(!n||n<=0)return'';
+    var chat=stCtx&&stCtx.chat; if(!chat||!chat.length)return'';
+    var recent=chat.filter(function(m){return !m.is_system;}).slice(-n);
+    return recent.map(function(m){
+      var txt=(m.mes||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+      return txt ? ((m.is_user?userName:charName)+': '+txt) : null;
+    }).filter(Boolean).join('\n');
+  }
+
+Horae 总结（Horae 是另一个酒馆扩展，全局暴露 TOP.Horae，必须 try/catch
+并允许不存在）：
+  var _hs = TOP.Horae && TOP.Horae.getLatestState && TOP.Horae.getLatestState();
+  可用字段：_hs.timestamp.story_date/story_time、_hs.scene.location/
+  atmosphere/characters_present、_hs.costumes、_hs.affection、_hs.items
+  事件列表：TOP.Horae.getEvents(0,'all') → [{event:{level,summary}}]
+  拼成文本后替换进提示词的 {{Horae总结}} 占位符。
+
+──────────────────────────────────────────────
+六、App 自己的 AI 对话：历史轮数、存储与删除
+──────────────────────────────────────────────
+发给 AI 的轮数控制（电话 App 的 callDepth 设置项，每轮=用户+AI 各 1 条）：
+  var past = history.slice(0,-1);                  // 最后一条是当前用户输入，先剥离
+  var slice = depth>0 ? past.slice(-depth*2) : past;  // 取最近 depth 轮
+  把 slice 拼为 "名字: 内容" 多行文本，替换模板 {{对话内容}}；
+  当前输入单独替换 {{用户输入}}（配合 userMsgTemplate 设置项包装用户消息）。
+
+AI 返回内容的存储（通话记录范式）：
+  存到 TOP.localStorage 独立 key（如 'vnm-phone-logs'），不要污染 sbS：
+  function _loadLogs(){try{return JSON.parse(TOP.localStorage.getItem('vnm-my-logs')||'[]');}catch(e){return[];}}
+  function _saveLogs(l){try{TOP.localStorage.setItem('vnm-my-logs',JSON.stringify(l.slice(-300)));}catch(e){}}
+  - slice(-300) 是上限保护；要"保存多少轮"可调，就加一个 number 设置项，
+    保存时 slice(-cfg.maxLogs)（0=不限）。
+  - 删除：列表页提供多选 + "删除"按钮，splice 后 _saveLogs；参考电话 App
+    通话记录页的 选择/清除/删除/注入 四按钮设计。
+
+──────────────────────────────────────────────
+七、往酒馆注入内容（统一走 user input 前缀 + 液态玻璃折叠）
+──────────────────────────────────────────────
+【v1.11.0 起的统一注入机制 —— 所有 App 一律用 injectCode 返回文本】
+
+  1) 你的 injectCode(ctx) 只需 return 一段字符串（本次要注入的内容 A）。
+     return '' 表示本次不注入。
+
+  2) 用户在 VN 对话框按 Enter 发送时，主文件会把所有 enabled 且
+     injectEnabled 的 App 的 injectCode 返回值【按顺序】拼接，再包成：
+         <VNInject>A1\nA2\n...</VNInject>\nB
+     （B = 用户实际输入），作为这条用户消息发出去。多个 App 同时注入不会
+     打架，按 vnmApps 顺序依次拼接。
+
+  3) 扩展自动注册两条酒馆正则：
+     - 显示正则（markdownOnly）：把 <VNInject>...</VNInject> 渲染成一个
+       液态玻璃折叠按钮，标题「Visual Novel · 注入内容」，点开看到全部 A，
+       聊天里平时只显示「折叠按钮 + B」。
+     - 提示词正则（promptOnly）：把 <VNInject>A</VNInject> 还原成纯 A，
+       于是发给大模型的就是 A 紧贴 B（不带标签），内容完整。
+
+  结论：App 作者【只管 return 文本】，折叠与提示词处理由主文件+扩展统一
+  负责，不要自己拼前缀、不要自己加折叠 UI。
+
+  需要"选择后下次发送才注入"的语义：把待注入内容存在 sbS（如
+  sbS.pendingXxx），injectCode 里读取、返回并清空即可。
+
+【已废弃】方式 B：setExtensionPrompt
+  以前壁纸/电话用 setExtensionPrompt 直接注入系统提示词，但那样内容【不会
+  进入用户消息、也不会出现在折叠按钮里】，与统一机制不一致。现在请改为
+  injectCode 返回文本。若仍需 setExtensionPrompt 做"仅显示用的正则注册"等
+  辅助用途可保留，但【提示词内容】必须改走 return。
+
+
+
+──────────────────────────────────────────────
+七·补 注入方法论（务必遵守, 避免注入不生效）
+──────────────────────────────────────────────
+注入文本到"酒馆用户消息前缀"现在有【两条路径】, 新增任何注入都必须两条都覆盖,
+否则从某个输入框发送时就不生效:
+
+  路径A — VN阅读器发送: 主文件 app.js 的 _buildInject()
+     (角色注入 + 各app injectCode + 主文件功能如VoiceTag)
+  路径B — 酒馆主输入框发送: 扩展 _bootstrap.js 的 computeInject()
+     (它在主窗口直接读 localStorage['vnm-statusbar-v2'] 跑 app injectCode + 角色 + 主文件功能)
+
+规则:
+  1. App 形式的注入: 只需在 app 的 injectCode 里 return 文本。两条路径都会自动跑
+     app 的 injectCode(A 经 _makePluginCtx, B 经 computeInject 的 new Function), 无需改主文件。
+  2. 主文件级功能的注入(不是app, 例如 VoiceTag 语音系统): 必须【同时】写进
+     _buildInject() 和 computeInject() 两处, 用同样的 parts.push(文本)。只加一处会漏。
+  3. 所有注入最终被包成 <VNInject>...</VNInject> 拼在用户输入前; 扩展注册的两条正则
+     负责: 显示折叠(液态玻璃) + 提示词剥标签(A紧贴B发给大模型)。按顺序拼接不打架。
+  4. 自检: 发一条消息后 F12 控制台, computeInject 会按需打印; 或看聊天里有没有
+     "Visual Novel·注入内容" 折叠条。没有=该路径没产出, 检查上面两处是否都加了。
+
+──────────────────────────────────────────────
+八、自定义提示词设计与"预览"
+──────────────────────────────────────────────
+- 所有提示词模板都做成 settingsFields 的 textarea（或 textarea-presets，
+  自带变量插入按钮），default 写一份完整可用的默认模板。
+- 模板用 {{占位符}}，运行时 .replace(/\{\{xxx\}\}/g, 值) 逐个替换。电话
+  App 支持：{{角色名称}} {{角色设定}} {{用户名称}} {{用户设定}} {{世界书}}
+  {{当前时间}} {{酒馆历史}} {{Horae总结}} {{对话内容}} {{用户输入}}
+- 预览功能：在 label 里嵌一个按钮，onclick 调用 App 挂到顶层的全局函数：
+  label: "通话系统提示词<button onclick=\"typeof window._vnmPreviewPrompt==='function'&&window._vnmPreviewPrompt(this)\" style=\"...\">预览完整提示词</button>"
+  pageCode 里实现并挂载：TOP._vnmPreviewPrompt=function(btn){ 用当前数据
+  实际执行一遍模板替换，弹窗展示最终发给 AI 的完整文本 }。
+  注意：浏览器原生 alert/prompt 会导致面板退出全屏，必须自己用 DOM 写
+  页内弹窗（参考电话 App 的 _vnmAlert/_vnmPrompt 实现）。
+
+──────────────────────────────────────────────
+九、独立 API（不使用主 API）的标准做法
+──────────────────────────────────────────────
+默认用主文件设置里的 API，提供 toggle 覆盖，回退逻辑写成函数：
+  settingsFields："覆盖 API" 分组：useOwnApi(toggle) + ownApiUrl(text)
+  + ownApiKey(password) + useOwnModel(toggle) + ownModel(text)
+  function _apiUrl(){return (cfg.useOwnApi&&cfg.ownApiUrl)||sbS.apiUrl||'';}
+  function _apiKey(){return (cfg.useOwnApi&&cfg.ownApiKey)||sbS.apiKey||'';}
+  function _model(){return (cfg.useOwnApi&&cfg.useOwnModel&&cfg.ownModel)||sbS.model||'';}
+不同用途可以各配一套（电话 App 给"通话"和"总结"分别做了覆盖组）。
+TTS 同理回退到 sbS.ttsApiKey / sbS.ttsGroupId。
+
+OpenAI 兼容请求范式：
+  function _chat(url,key,model,messages,onText,onErr){
+    var base=(url||'').replace(/\/chat\/completions\/?$/,'').replace(/\/+$/,'');
+    if(!base){onErr('API地址未设置');return;}
+    var hdrs={'Content-Type':'application/json'}; if(key)hdrs['Authorization']='Bearer '+key;
+    TOP.fetch(base+'/chat/completions',{method:'POST',headers:hdrs,
+      body:JSON.stringify({model:model,messages:messages,max_tokens:800,temperature:0.9})})
+    .then(function(r){if(!r.ok){onErr('HTTP '+r.status);return Promise.reject(null);}return r.json();})
+    .then(function(d){if(!d)return;var t=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content;
+      t?onText(t.trim()):onErr('返回空内容');})
+    .catch(function(e){if(e)onErr(e.message);});
+  }
+MiniMax TTS：POST {host}/v1/t2a_v2?GroupId={gid}，Bearer key，body 含
+model/text/voice_setting{voice_id,speed}/audio_setting{format:'mp3'}，
+返回 hex 音频转 Uint8Array → Blob 播放。
+
+──────────────────────────────────────────────
+十、必须遵守的硬性规范（总结）
+──────────────────────────────────────────────
+1. 禁止 App 内自建设置界面/自存配置；一切配置走 settingsFields，与主文件
+   设置桥接。
+2. 兼容 ES5 风格（function/var），不要用模板字符串反引号（避免 JSON 转
+   义灾难）和 async/await（用 Promise/回调）。
+3. 一切顶层能力走 TOP.xxx（fetch/localStorage/setTimeout/FileReader/
+   SpeechRecognition/Audio）。
+4. 所有外部依赖（SillyTavern、Horae、TTS）必须 try/catch 且能优雅降级。
+5. UI 用主文件的 v8 样式类，自动获得液态玻璃外观并跟随用户的玻璃设置。
+6. 不要用 alert/prompt/confirm，自己写页内弹窗。
+7. pageCode 返回单个根 DOM 元素；不要操作 App 页面以外的主文件 DOM。
+8. localStorage 的 key 加自己的前缀（vnm-<appid>-xxx），并设条数上限。
+9. 交付物是一个 .json 文件，pageCode/injectCode 为转义后的函数字符串；
+   交付前自查 JSON.parse 能通过。
+════════════════════════════════════════════════════════════════════

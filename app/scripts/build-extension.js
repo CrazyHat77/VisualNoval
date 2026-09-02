@@ -73,7 +73,7 @@ const manifest = {
   css: 'extension/style.css',
   author: 'LAWLEITLIGHT',
   version: pkg.version,
-  homePage: 'https://github.com/LAWLEITLIGHT/VisualNoval',
+  homePage: 'https://github.com/CrazyHat77/VisualNoval',
   auto_update: true,
 };
 fs.writeFileSync(path.join(ROOT, 'manifest.json'), JSON.stringify(manifest, null, 2));
