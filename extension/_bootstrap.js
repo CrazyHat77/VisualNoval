@@ -535,6 +535,8 @@
 
   /* ---------- 普通酒馆输入框发送时也注入(配合 __vnmInjectFn) ---------- */
   function computeInject() {
+    /* 酒馆助手 injectPrompts 已接管注入时, 扩展前缀路径停用, 避免双份 */
+    try { if (window.__vnmHelperInjected) return ''; } catch (e) {}
     var parts = [];
     var sbS = {};
     try { sbS = JSON.parse(localStorage.getItem('vnm-statusbar-v2') || '{}') || {}; } catch (e) {}
@@ -559,7 +561,8 @@
         }
       }
     } catch (e) {}
-    return parts.join('\n');
+    if (!parts.length) return '';
+    return '<FormatRules>\n' + parts.join('\n') + '\n</FormatRules>';
   }
   var _wDiagN = 0;
   function runSideEffects() {

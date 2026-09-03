@@ -248,6 +248,7 @@ function openViewer(mode){
   /* 阅读器打开时唤起各启用插件的 injectCode(壁纸等 App 借此启动自己的轮询,
      保证新楼层/刷新后无需手动打开插件页即可正常加载) */
   try{ if(TOP.__vnmInjectFn && typeof TOP.__vnmInjectFn==='function') TOP.__vnmInjectFn(); }catch(e){}
+  try{ _syncHelperInject(); }catch(e){}
   // Web mode: lock body scroll (iOS position:fixed trick) + height sync
   if(mode==='web'){
     try{
@@ -1321,7 +1322,7 @@ function openViewer(mode){
       e.preventDefault();
       const v = input.value.trim(); if (!v) return;
       input.value='';
-      var _inj=_sbInjectFn();
+      var _inj=TOP.__vnmHelperInjected?'':_sbInjectFn();
       var _msg=_inj?'<VNInject>'+_inj+'</VNInject>\n'+v:v;
       if(state.stayMode){
         sendToTavern(_msg); showSentState();
@@ -1389,9 +1390,30 @@ function openViewer(mode){
         }
       }
     }catch(e){}
-    return parts.join('\n');
+    if(!parts.length) return '';
+    /* 内层 <FormatRules> 标签: 世界书可引用"遵循 FormatRules 内规则", 不剥壳, 两条注入路径一致 */
+    return '<FormatRules>\n' + parts.join('\n') + '\n</FormatRules>';
   }
   try{ TOP.__vnmInjectFn=_buildInject; }catch(e){}
+  /* 酒馆助手原生提示词注入(injectPrompts): 任何输入框发送都生效、聊天不显示。
+     有酒馆助手时以此为主路径, 旧的 <VNInject> 前缀降级为兜底并停用, 避免双份。 */
+  function _syncHelperInject(){
+    try{
+      var H = TOP.TavernHelper || (typeof TavernHelper!=='undefined'?TavernHelper:null);
+      if(!H || typeof H.injectPrompts!=='function'){ return false; }
+      var txt = _buildInject();
+      try{ if(H.uninjectPrompts) H.uninjectPrompts(['vnm-format-rules']); }catch(e){}
+      if(!txt){ TOP.__vnmHelperInjected = false; return true; }
+      H.injectPrompts([{ id:'vnm-format-rules', position:'in_chat', depth:0, role:'system', content:txt, should_scan:false }]);
+      TOP.__vnmHelperInjected = true;
+      try{ console.info('[VN FormatRules] 已注入', txt.length, '字符'); }catch(e){}
+      return true;
+    }catch(e){
+      try{ console.warn('[VN FormatRules] 注入失败', e); }catch(_e){}
+      return false;
+    }
+  }
+  try{ TOP.__vnmSyncHelperInject=_syncHelperInject; }catch(e){}
   /* 头像压缩: 上传时缩到 256px JPEG, 避免 base64 撑爆 localStorage 配额(保存失败的常见原因) */
   function _v8ShrinkAvatar(file, cb){
     var r=new TOP.FileReader();
@@ -2023,6 +2045,7 @@ function openViewer(mode){
     function _updatePluginInjection(){
       _sbInjectFn=_buildInject;
       try{ TOP.__vnmInjectFn=_buildInject; }catch(e){}
+      try{ _syncHelperInject(); }catch(e){}
     }
 
     /* ─── Plugin context factory ─────────────────────────── */
