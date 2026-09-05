@@ -28,6 +28,21 @@ function buildRegexJson() {
   regexMeta.replaceString = assembleReplaceString();
   return regexMeta;
 }
+function buildAppsManifest() {
+  /* 轻量清单: loader 用它判断哪些 App 需要拉取(缺失或版本落后) */
+  const APPS_DIR = path.join(SRC, 'apps');
+  const list = [];
+  if (fs.existsSync(APPS_DIR)) {
+    fs.readdirSync(APPS_DIR).filter(function (f) { return /\.json$/i.test(f); }).forEach(function (f) {
+      try {
+        const a = JSON.parse(fs.readFileSync(path.join(APPS_DIR, f), 'utf8'));
+        if (a && a.vnmPlugin && a.id && a.name) list.push({ id: a.id, name: a.name, version: a.version || '1.0', file: f });
+      } catch (e) { /* 跳过坏文件 */ }
+    });
+  }
+  fs.writeFileSync(path.join(DIST, 'apps-manifest.json'), JSON.stringify(list));
+  return list;
+}
 function main() {
   fs.mkdirSync(DIST, { recursive: true });
   const regexJson = buildRegexJson();
@@ -40,8 +55,9 @@ function main() {
     builtAt: new Date().toISOString(),
   };
   fs.writeFileSync(path.join(DIST, 'manifest.json'), JSON.stringify(manifest, null, 2));
+  const apps = buildAppsManifest();
   console.log('[build] regex JSON ->', outPath, '(' + regexJson.replaceString.length + ' chars)');
-  console.log('[build] manifest v' + pkg.version);
+  console.log('[build] manifest v' + pkg.version, '| apps-manifest:', apps.length, '个 App');
 }
 if (require.main === module) main();
 module.exports = { assembleReplaceString, buildRegexJson };

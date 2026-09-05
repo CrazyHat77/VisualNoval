@@ -40,6 +40,72 @@
     await installRegex(helper, tavernRegex);
     console.info(LOG, '已安装/更新正则：', tavernRegex.script_name);
     toast('Visual Novel 已更新到最新版：' + tavernRegex.script_name, 'success');
+    if (cfg.apps !== false) await installApps();
+  }
+
+  // 预装/更新功能系统 App(缺失或版本落后才拉取, 保留玩家已有设置)
+  async function installApps() {
+    try {
+      const fetchFn = getFetch();
+      if (!fetchFn) return;
+      const ref = cfg.ref || DEFAULT_REF;
+      const base = cfg.base || `https://cdn.jsdelivr.net/gh/${REPOSITORY}@${ref}`;
+      const manifest = await fetchJson(fetchFn, `${base}/app/dist/apps-manifest.json?vnlg_t=${Date.now()}`);
+      if (!manifest || !Array.isArray(manifest) || !manifest.length) return;
+      let sbRaw = null;
+      try { sbRaw = root.localStorage.getItem('vnm-statusbar-v2'); } catch (e) {}
+      let sbS = {};
+      try { sbS = JSON.parse(sbRaw || '{}') || {}; } catch (e) {}
+      const apps = Array.isArray(sbS.vnmApps) ? sbS.vnmApps : [];
+      let changed = false, installed = 0, updated = 0;
+      for (const item of manifest) {
+        if (!item || !item.id || !item.file) continue;
+        const curIdx = apps.findIndex(a => a && a.id === item.id);
+        const cur = curIdx >= 0 ? apps[curIdx] : null;
+        if (cur && !verNewer(item.version, cur.version || '0')) continue;
+        const p = await fetchJson(fetchFn, `${base}/app/src/apps/${item.file}?vnlg_t=${Date.now()}`);
+        if (!p || !p.vnmPlugin || !p.id) continue;
+        const entry = {
+          id: p.id, name: p.name, version: p.version || '1.0', description: p.description || '',
+          icon: p.icon || '<circle cx="12" cy="12" r="5"/>', enabled: true,
+          settingsTitle: p.settingsTitle || p.name, settingsFields: p.settingsFields || [],
+          settingsValues: cur && cur.settingsValues ? cur.settingsValues : {},
+          pageCode: p.pageCode || '', injectCode: p.injectCode || '', injectEnabled: !!(p.injectEnabled)
+        };
+        (p.settingsFields || []).forEach(f => {
+          if (entry.settingsValues[f.key] === undefined && f.default !== undefined) entry.settingsValues[f.key] = f.default;
+        });
+        if (curIdx >= 0) { apps[curIdx] = entry; updated++; }
+        else { apps.push(entry); installed++; }
+        changed = true;
+      }
+      if (changed) {
+        sbS.vnmApps = apps;
+        try { root.localStorage.setItem('vnm-statusbar-v2', JSON.stringify(sbS)); } catch (e) {}
+      }
+      if (installed || updated) toast('功能系统 App 已就绪：新增 ' + installed + ' 个，更新 ' + updated + ' 个', 'info');
+      else console.info(LOG, 'App 均为最新');
+    } catch (e) {
+      console.warn(LOG, 'App 预装失败(不影响正则更新)：', e && e.message || e);
+    }
+  }
+
+  async function fetchJson(fetchFn, url) {
+    try {
+      const r = await fetchFn(url, { cache: 'no-store' });
+      if (!r || !r.ok) return null;
+      return r.json();
+    } catch (e) { return null; }
+  }
+
+  // 版本比较: a > b ?
+  function verNewer(a, b) {
+    const pa = String(a || '0').split('.'), pb = String(b || '0').split('.');
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+      const x = parseInt(pa[i] || '0', 10), y = parseInt(pb[i] || '0', 10);
+      if (x !== y) return x > y;
+    }
+    return false;
   }
 
   // 拉取最新正则 JSON（带 main 提交哈希以绕过 CDN 缓存）
@@ -133,6 +199,7 @@
     return {
       ref: String(u.ref || root.VNLG_LOADER_REF || '').trim(),
       base: String(u.base || root.VNLG_LOADER_BASE || '').replace(/\/+$/, ''),
+      apps: u.apps !== false,
     };
   }
   function getHelper() {
